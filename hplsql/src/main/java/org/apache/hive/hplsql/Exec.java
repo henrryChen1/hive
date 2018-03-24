@@ -24,6 +24,7 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -41,9 +42,12 @@ import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.misc.NotNull;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
+import org.antlr.v4.runtime.tree.gui.TreeViewer;
 import org.apache.commons.io.FileUtils;
 import org.apache.hive.hplsql.Var.Type;
 import org.apache.hive.hplsql.functions.*;
+
+import javax.swing.*;
 
 /**
  * HPL/SQL script executor
@@ -826,6 +830,14 @@ public class Exec extends HplsqlBaseVisitor<Integer> {
     if (trace) {
       System.err.println("Configuration file: " + conf.getLocation());
       System.err.println("Parser tree: " + tree.toStringTree(parser));
+
+      // save AST to JPG
+      JFrame frame = new JFrame("Antlr AST");
+      JPanel panel = new JPanel();
+      TreeViewer viewer = new TreeViewer(Arrays.asList(parser.getRuleNames()),tree);
+      viewer.setScale(1.5);//scale a little
+      viewer.setSize(15000, 3000);
+      viewer.save("./ast.jpg");
     }
     includeRcFile();    
     return 0;
