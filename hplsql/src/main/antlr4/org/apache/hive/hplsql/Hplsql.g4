@@ -211,7 +211,14 @@ cursor_without_return :
      ;
 
 declare_handler_item :     // Condition handler declaration 
-       (T_CONTINUE | T_EXIT) T_HANDLER T_FOR (T_SQLEXCEPTION | T_SQLWARNING | T_NOT T_FOUND | ident) single_block_stmt
+       (T_CONTINUE | T_EXIT) T_HANDLER T_FOR declare_handler_for_condition (T_COMMA declare_handler_for_condition)* single_block_stmt
+     ;
+
+declare_handler_for_condition :
+       T_SQLEXCEPTION
+     | T_SQLWARNING
+     | T_NOT T_FOUND
+     | ident
      ;
      
 declare_temporary_table_item :     // DECLARE TEMPORARY TABLE statement

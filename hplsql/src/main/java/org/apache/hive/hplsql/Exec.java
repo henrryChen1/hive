@@ -26,8 +26,10 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.Stack;
 import java.util.Iterator;
 import java.sql.Connection;
@@ -1330,20 +1332,31 @@ public class Exec extends HplsqlBaseVisitor<Integer> {
   public Integer visitDeclare_handler_item(HplsqlParser.Declare_handler_itemContext ctx) {
     trace(ctx, "DECLARE HANDLER");
     Handler.ExecType execType = Handler.ExecType.EXIT;
-    Signal.Type type = Signal.Type.SQLEXCEPTION;
-    String value = null;
     if (ctx.T_CONTINUE() != null) {
       execType = Handler.ExecType.CONTINUE;
-    }    
-    if (ctx.ident() != null) {
-      type = Signal.Type.USERDEFINED;
-      value = ctx.ident().getText();
     }
-    else if (ctx.T_NOT() != null && ctx.T_FOUND() != null) {
-      type = Signal.Type.NOTFOUND;
+
+    Set<Signal.Type> types = new HashSet<>();
+    for (HplsqlParser.Declare_handler_for_conditionContext conditionContext : ctx.declare_handler_for_condition()) {
+      Signal.Type type = Signal.Type.SQLEXCEPTION;
+      String value = null;
+      if (conditionContext.ident() != null) {
+        type = Signal.Type.USERDEFINED;
+        value = conditionContext.ident().getText();
+      }
+      else if (conditionContext.T_NOT() != null && conditionContext.T_FOUND() != null) {
+        type = Signal.Type.NOTFOUND;
+      }
+
+      if (!types.contains(type)) {
+        types.add(type);
+        addHandler(new Handler(execType, type, value, exec.currentScope, ctx));
+      }
+      else {
+        error(ctx, "Duplicated type: " + type);
+      }
     }
-    addHandler(new Handler(execType, type, value, exec.currentScope, ctx));
-    return 0; 
+    return 0;
   }
   
   /**
