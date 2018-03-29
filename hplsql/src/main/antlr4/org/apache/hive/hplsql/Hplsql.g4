@@ -906,6 +906,7 @@ select_options :
 
 select_options_item :
        T_LIMIT expr
+     | T_FETCH T_FIRST expr (T_ROW | T_ROWS) T_ONLY
      | T_WITH (T_RR | T_RS | T_CS | T_UR) (T_USE T_AND T_KEEP (T_EXCLUSIVE | T_UPDATE | T_SHARE) T_LOCKS)?
      ;
 
@@ -1866,6 +1867,7 @@ T_CURRENT_DATE         : C U R R E N T '_' D A T E ;
 T_CURRENT_TIMESTAMP    : C U R R E N T '_' T I M E S T A M P ;
 T_CURRENT_USER         : C U R R E N T '_' U S E R ;
 T_DENSE_RANK           : D E N S E '_' R A N K ;
+T_FIRST                : F I R S T;
 T_FIRST_VALUE          : F I R S T '_' V A L U E; 
 T_LAG                  : L A G ;
 T_LAST_VALUE           : L A S T '_' V A L U E; 

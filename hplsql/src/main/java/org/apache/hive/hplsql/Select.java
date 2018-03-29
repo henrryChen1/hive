@@ -428,7 +428,7 @@ public class Select {
    * SELECT statement options - LIMIT n, WITH UR i.e
    */
   public Integer option(HplsqlParser.Select_options_itemContext ctx) { 
-    if (ctx.T_LIMIT() != null) {
+    if (ctx.T_LIMIT() != null || ctx.T_FETCH() != null) {
       exec.stackPush("LIMIT " + evalPop(ctx.expr()));
     }
     return 0; 
