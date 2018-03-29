@@ -41,7 +41,8 @@ public class FunctionMisc extends Function {
     f.map.put("NVL", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { nvl(ctx); }});
     f.map.put("NVL2", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { nvl2(ctx); }});
     f.map.put("PART_COUNT_BY", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { partCountBy(ctx); }});
-    
+    f.map.put("INTEGER", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { integer(ctx); }});
+
     f.specMap.put("ACTIVITY_COUNT", new FuncSpecCommand() { public void run(HplsqlParser.Expr_spec_funcContext ctx) { activityCount(ctx); }});
     f.specMap.put("CAST", new FuncSpecCommand() { public void run(HplsqlParser.Expr_spec_funcContext ctx) { cast(ctx); }});
     f.specMap.put("CURRENT", new FuncSpecCommand() { public void run(HplsqlParser.Expr_spec_funcContext ctx) { current(ctx); }});
@@ -162,7 +163,19 @@ public class FunctionMisc extends Function {
       evalNull();
     }
   }
-  
+
+  /**
+   * INTEGER function - Returns an integer representation of either a number or a character string
+   */
+  void integer(HplsqlParser.Expr_func_paramsContext ctx) {
+    if (ctx.func_param().size() == 1) {
+      Var v = evalPop(ctx.func_param(0).expr());
+      evalInt(v.intValue());
+      return;
+    }
+    evalNull();
+  }
+
   /**
    * NVL function - Return first non-NULL expression
    */
