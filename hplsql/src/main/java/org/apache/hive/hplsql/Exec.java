@@ -2154,10 +2154,20 @@ public class Exec extends HplsqlBaseVisitor<Integer> {
    * Identifier
    */
   @Override 
-  public Integer visitIdent(HplsqlParser.IdentContext ctx) { 
+  public Integer visitIdent(HplsqlParser.IdentContext ctx) {
+    boolean hasSub = false;
     String ident = ctx.getText();
-    Var var = findVariable(ident);
+    String actualIdent = ident;
+    if (ident.startsWith("-")) {
+      hasSub = true;
+      actualIdent = ident.substring(1, ident.length());
+    }
+
+    Var var = findVariable(actualIdent);
     if (var != null) {
+      if (hasSub) {
+        var.negate();
+      }
       if (!exec.buildSql) {
         exec.stackPush(var);
       }
