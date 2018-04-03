@@ -700,12 +700,17 @@ rollback_stmt :         // ROLLBACK statement
      
 set_session_option :          
        set_current_schema_option
+     | set_current_path_option
      | set_mssql_session_option
      | set_teradata_session_option
      ;
 
 set_current_schema_option :          
        ((T_CURRENT? T_SCHEMA) | T_CURRENT_SCHEMA) T_EQUAL? expr
+     ;
+
+set_current_path_option :
+       T_CURRENT? T_PATH T_EQUAL expr (',' expr)*
      ;
      
 set_mssql_session_option :
@@ -1750,7 +1755,8 @@ T_OVER            : O V E R ;
 T_OVERWRITE       : O V E R W R I T E ; 
 T_OWNER           : O W N E R ; 
 T_PACKAGE         : P A C K A G E ; 
-T_PARTITION       : P A R T I T I O N ; 
+T_PARTITION       : P A R T I T I O N ;
+T_PATH            : P A T H ;
 T_PCTFREE         : P C T F R E E ; 
 T_PCTUSED         : P C T U S E D ;
 T_PLS_INTEGER     : P L S '_' I N T E G E R ;
