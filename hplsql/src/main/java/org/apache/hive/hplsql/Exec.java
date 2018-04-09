@@ -49,8 +49,6 @@ import org.apache.commons.io.FileUtils;
 import org.apache.hive.hplsql.Var.Type;
 import org.apache.hive.hplsql.functions.*;
 
-import javax.swing.*;
-
 /**
  * HPL/SQL script executor
  *
@@ -120,6 +118,7 @@ public class Exec extends HplsqlBaseVisitor<Integer> {
   boolean trace = false; 
   boolean info = true;
   boolean offline = false;
+  boolean outputAst = false;
   
   Exec() {
     exec = this;
@@ -832,10 +831,9 @@ public class Exec extends HplsqlBaseVisitor<Integer> {
     if (trace) {
       System.err.println("Configuration file: " + conf.getLocation());
       System.err.println("Parser tree: " + tree.toStringTree(parser));
-
+    }
+    if (outputAst) {
       // save AST to JPG
-      JFrame frame = new JFrame("Antlr AST");
-      JPanel panel = new JPanel();
       TreeViewer viewer = new TreeViewer(Arrays.asList(parser.getRuleNames()),tree);
       viewer.setScale(1.5);//scale a little
       viewer.setSize(15000, 3000);
@@ -867,6 +865,9 @@ public class Exec extends HplsqlBaseVisitor<Integer> {
     }
     if (arguments.hasOfflineOption()) {
       offline = true;
+    }
+    if (arguments.hasAstOption()) {
+      outputAst = true;
     }
     if (execString != null && execFile != null) {
       System.err.println("The '-e' and '-f' options cannot be specified simultaneously.");
