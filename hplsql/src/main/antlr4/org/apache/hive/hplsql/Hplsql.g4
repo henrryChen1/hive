@@ -1050,7 +1050,9 @@ interval_item :
      | T_MICROSECOND 
      | T_MICROSECONDS  
      | T_SECOND 
-     | T_SECONDS  
+     | T_SECONDS
+     | T_MONTH
+     | T_MONTHS
      ;
      
 expr_concat :                  // String concatenation operator
@@ -1728,6 +1730,8 @@ T_MESSAGE_TEXT    : M E S S A G E '_' T E X T ;
 T_MICROSECOND     : M I C R O S E C O N D ;
 T_MICROSECONDS    : M I C R O S E C O N D S;
 T_MIN             : M I N ;
+T_MONTH           : M O N T H ;
+T_MONTHS          : M O N T H S ;
 T_MULTISET        : M U L T I S E T ; 
 T_NCHAR           : N C H A R ; 
 T_NEW             : N E W ;

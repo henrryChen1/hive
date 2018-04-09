@@ -28,6 +28,7 @@ import java.util.Calendar;
 public class Interval {
   int days = 0;
   int milliseconds = 0;
+  int months = 0;
   
   /**
    * Add or subtract interval value to the specified date
@@ -63,6 +64,9 @@ public class Interval {
     if (milliseconds != 0) {
       c.setTimeInMillis(c.getTimeInMillis() + milliseconds * a);
     }
+    if (months != 0) {
+      c.add(Calendar.MONTH, months * a);
+    }
     return c;
   }
   
@@ -76,6 +80,9 @@ public class Interval {
     if (item.compareToIgnoreCase("MICROSECONDS") == 0 || item.compareToIgnoreCase("MICROSECOND") == 0) {
       setMilliseconds(value);
     }
+    if (item.compareToIgnoreCase("MONTHS") == 0 || item.compareToIgnoreCase("MONTH") == 0) {
+      setMonths(value);
+    }
     return this;
   }
   
@@ -88,6 +95,10 @@ public class Interval {
   
   public void setMilliseconds(int milliseconds) {
     this.milliseconds = milliseconds;
+  }
+
+  public void setMonths(int months) {
+    this.months = months;
   }
   
   /**
@@ -103,6 +114,10 @@ public class Interval {
     if (milliseconds != 0) {
       s.append(milliseconds);
       s.append(" milliseconds");
+    }
+    if (months != 0) {
+      s.append(months);
+      s.append(" months");
     }
     return s.toString();
   }
