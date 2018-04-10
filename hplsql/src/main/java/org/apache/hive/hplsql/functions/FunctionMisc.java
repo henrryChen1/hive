@@ -18,6 +18,7 @@
 
 package org.apache.hive.hplsql.functions;
 
+import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -44,6 +45,7 @@ public class FunctionMisc extends Function {
     f.map.put("PART_COUNT_BY", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { partCountBy(ctx); }});
     f.map.put("INTEGER", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { integer(ctx); }});
     f.map.put("INT", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { integer(ctx); }});
+    f.map.put("ABS", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { abs(ctx); }});
 
     f.specMap.put("ACTIVITY_COUNT", new FuncSpecCommand() { public void run(HplsqlParser.Expr_spec_funcContext ctx) { activityCount(ctx); }});
     f.specMap.put("CAST", new FuncSpecCommand() { public void run(HplsqlParser.Expr_spec_funcContext ctx) { cast(ctx); }});
@@ -320,5 +322,33 @@ public class FunctionMisc extends Function {
       }
     }
     exec.closeQuery(query, exec.conf.defaultConnection);
+  }
+
+  /**
+   * ABS(expression)
+   *   expression: An expression that returns a value of any built-in numeric data type or string.
+   */
+  void abs(HplsqlParser.Expr_func_paramsContext ctx) {
+    if (ctx == null || ctx.func_param().size() != 1) {
+      evalNull();
+      return;
+    }
+
+    Var value = evalPop(ctx.func_param(0).expr());
+    if (value.type == Var.Type.STRING) {
+      evalInt(Math.abs(value.intValue()));
+    }
+    else if (value.type == Var.Type.BIGINT) {
+      evalInt(Math.abs(value.longValue()));
+    }
+    else if (value.type == Var.Type.DOUBLE) {
+      evalVar(new Var(Math.abs(value.doubleValue())));
+    }
+    else if (value.type == Var.Type.DECIMAL) {
+      BigDecimal v = value.decimalValue();
+      evalVar(new Var(v.abs()));
+    } else {
+      evalNull();
+    }
   }
 }
