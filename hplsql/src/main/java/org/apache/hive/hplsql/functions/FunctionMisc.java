@@ -37,13 +37,12 @@ public class FunctionMisc extends Function {
   @Override
   public void register(Function f) {
     f.map.put("COALESCE", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { nvl(ctx); }});
+    f.map.put("VALUE", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { nvl(ctx); }});
     f.map.put("DECODE", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { decode(ctx); }});
     f.map.put("NVL", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { nvl(ctx); }});
     f.map.put("NVL2", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { nvl2(ctx); }});
     f.map.put("PART_COUNT_BY", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { partCountBy(ctx); }});
     f.map.put("INTEGER", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { integer(ctx); }});
-
-    f.map.put("VALUE", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { value(ctx); }});
 
     f.specMap.put("ACTIVITY_COUNT", new FuncSpecCommand() { public void run(HplsqlParser.Expr_spec_funcContext ctx) { activityCount(ctx); }});
     f.specMap.put("CAST", new FuncSpecCommand() { public void run(HplsqlParser.Expr_spec_funcContext ctx) { cast(ctx); }});
@@ -173,22 +172,6 @@ public class FunctionMisc extends Function {
     if (ctx.func_param().size() == 1) {
       Var v = evalPop(ctx.func_param(0).expr());
       evalInt(v.intValue());
-      return;
-    }
-    evalNull();
-  }
-
-  /**
-   * VALUE function - Return not null first value or default value
-   */
-  void value(HplsqlParser.Expr_func_paramsContext ctx) {
-    if (ctx.func_param().size() == 2) {
-      if (!evalPop(ctx.func_param(0).expr()).isNull()) {
-        eval(ctx.func_param(0));
-      }
-      else {
-        eval(ctx.func_param(1));
-      }
       return;
     }
     evalNull();
