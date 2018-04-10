@@ -42,6 +42,7 @@ public class FunctionString extends Function {
     f.map.put("TO_CHAR", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { toChar(ctx); }});
     f.map.put("UPPER", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { upper(ctx); }});
     f.map.put("RIGHT", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { right(ctx); }});
+    f.map.put("LEFT", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { left(ctx); }});
 
     f.specMap.put("SUBSTRING", new FuncSpecCommand() { public void run(HplsqlParser.Expr_spec_funcContext ctx) { substring(ctx); }});
     f.specMap.put("TRIM", new FuncSpecCommand() { public void run(HplsqlParser.Expr_spec_funcContext ctx) { trim(ctx); }});
@@ -319,4 +320,34 @@ public class FunctionString extends Function {
 
     substr(str, str.length() - len + 1, len);
   }
+
+  /**
+   * LEFT function
+   * returns a string that consists of the specified number of leftmost string unit from a string
+   */
+  void left(HplsqlParser.Expr_func_paramsContext ctx) {
+    int cnt = getParamCount(ctx);
+    if (cnt < 2) {
+      evalNull();
+      return;
+    }
+
+    String str = evalPop(ctx.func_param(0).expr()).toString();
+    if (str == null) {
+      evalNull();
+      return;
+    }
+
+    int len = evalPop(ctx.func_param(1).expr()).intValue();
+    if (len > str.length()) {
+      StringBuilder builder = new StringBuilder(str);
+      for (int i = str.length(); i < len; i++) {
+        builder.append(" ");
+      }
+      str = builder.toString();
+    }
+
+    substr(str,1, len);
+  }
+
 }
