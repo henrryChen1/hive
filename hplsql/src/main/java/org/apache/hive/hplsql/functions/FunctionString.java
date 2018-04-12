@@ -20,6 +20,8 @@ package org.apache.hive.hplsql.functions;
 
 import org.apache.hive.hplsql.*;
 
+import java.text.SimpleDateFormat;
+
 public class FunctionString extends Function {
   public FunctionString(Exec e) {
     super(e);
@@ -272,12 +274,23 @@ public class FunctionString extends Function {
    */
   void toChar(HplsqlParser.Expr_func_paramsContext ctx) {
     int cnt = getParamCount(ctx);
-    if (cnt != 1) {
-      evalNull();
+    if (cnt == 1) {
+      String str = evalPop(ctx.func_param(0).expr()).toString();
+      evalString(str);
       return;
     }
-    String str = evalPop(ctx.func_param(0).expr()).toString(); 
-    evalString(str);
+
+    if (cnt == 2) {
+      Var v1 = evalPop(ctx.func_param(0).expr());
+      if (v1.type == Var.Type.TIMESTAMP) {
+        String sqlFormat = evalPop(ctx.func_param(1).expr()).toString();
+        String format = Utils.convertSqlDatetimeFormat(sqlFormat);
+        evalString(new SimpleDateFormat(format).format(v1.timestampValue()));
+        return;
+      }
+    }
+
+    evalNull();
   }
   
   /**
