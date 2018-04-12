@@ -521,20 +521,21 @@ public class Expression {
   public void execSimpleCase(HplsqlParser.Expr_case_simpleContext ctx) { 
     int i = 1;
     int cnt = ctx.expr().size();
+    int stmtCnt = ctx.stmt().size();
     boolean found = false;
     Var val = evalPop(ctx.expr(0));
     while(i < cnt) {
       Var when = evalPop(ctx.expr(i));
       if(val.compareTo(when) == 0) {
-        visit(ctx.expr(i + 1));
+        visit(ctx.stmt(i - 1));
         found = true;
         break;
       }
-      i += 2;
+      i += 1;
     }
     if(!found) {
       if(ctx.T_ELSE() != null) {
-        visit(ctx.expr(cnt - 1));
+        visit(ctx.stmt(stmtCnt - 1));
       }
       else {
         evalNull();
@@ -552,13 +553,13 @@ public class Expression {
     int cnt = ctx.T_WHEN().size();
     for (int i = 0; i < cnt; i++) {
       sql.append(" WHEN ");
-      sql.append(evalPop(ctx.expr(i * 2 + 1)).toString());
+      sql.append(evalPop(ctx.expr(i + 1)).toString());
       sql.append(" THEN ");
-      sql.append(evalPop(ctx.expr(i * 2 + 2)).toString());
+      sql.append(evalPop(ctx.stmt(i)).toString());
     }
     if (ctx.T_ELSE() != null) {
       sql.append(" ELSE ");
-      sql.append(evalPop(ctx.expr(cnt * 2 + 1)).toString());
+      sql.append(evalPop(ctx.stmt(cnt)).toString());
     }
     sql.append(" END");
     exec.stackPush(sql);
@@ -572,14 +573,14 @@ public class Expression {
     boolean found = false;
     for(int i = 0; i < cnt; i++) {
       if(evalPop(ctx.bool_expr(i)).isTrue()) {
-        visit(ctx.expr(i)); 
+        visit(ctx.stmt(i));
         found = true;
         break;
       }
     }
     if(!found) {
       if(ctx.T_ELSE() != null) {
-        visit(ctx.expr(cnt));
+        visit(ctx.stmt(cnt));
       }
       else {
         evalNull();
@@ -598,11 +599,11 @@ public class Expression {
       sql.append(" WHEN ");
       sql.append(evalPop(ctx.bool_expr(i)).toString());
       sql.append(" THEN ");
-      sql.append(evalPop(ctx.expr(i)).toString());
+      sql.append(evalPop(ctx.stmt(i)).toString());
     }
     if (ctx.T_ELSE() != null) {
       sql.append(" ELSE ");
-      sql.append(evalPop(ctx.expr(cnt)).toString());
+      sql.append(evalPop(ctx.stmt(cnt)).toString());
     }
     sql.append(" END");
     exec.stackPush(sql);
