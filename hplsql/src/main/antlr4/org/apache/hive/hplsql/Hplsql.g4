@@ -918,7 +918,7 @@ select_options_item :
 update_stmt :                              // UPDATE statement
        T_UPDATE update_table T_SET update_assignment where_clause? update_upsert?
      ;
-     
+
 update_assignment :
        assignment_stmt_item (T_COMMA assignment_stmt_item)*
      ;

@@ -1144,6 +1144,13 @@ public class Stmt {
   public Integer update(HplsqlParser.Update_stmtContext ctx) {
     trace(ctx, "UPDATE");
     String sql = exec.getFormattedText(ctx);
+
+    if (ctx.update_table().ident() != null) {
+      String alias = evalPop(ctx.update_table().ident()).toString();
+      String tableName = evalPop(ctx.update_table().table_name()).toString();
+      sql = sql.replace(alias + ".", tableName + ".")
+          .replace(" " + alias + " ", " ");
+    }
     trace(ctx, sql);
     Query query = exec.executeSql(ctx, sql, exec.conf.defaultConnection);
     if (query.error()) {
