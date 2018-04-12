@@ -1168,6 +1168,10 @@ public class Stmt {
         boolean oldBuildSql = exec.buildSql; 
         exec.buildSql = true;
         sql.append(" " + evalPop(ctx.where_clause()).toString());
+        if (ctx.delete_alias() != null) {
+          String alias = evalPop(ctx.delete_alias()).toString();
+          sql = new StringBuilder(sql.toString().replace(alias + ".", table + "."));
+        }
         exec.buildSql = oldBuildSql;
       }
     }
