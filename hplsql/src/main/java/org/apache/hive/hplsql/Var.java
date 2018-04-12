@@ -20,6 +20,7 @@ package org.apache.hive.hplsql;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.sql.Time;
 import java.util.ArrayList;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -540,8 +541,28 @@ public class Var {
     }
     throw new NumberFormatException();
   }
-	
-	/**
+
+  /**
+   * Return a Date value
+   */
+  public Date dateValue() {
+    if (type == Type.DATE) {
+      return (Date)value;
+    }
+    throw new IllegalArgumentException("invalid type " + type);
+  }
+
+  /**
+   * Return a Timestamp value
+   */
+  public Timestamp timestampValue() {
+    if (type == Type.TIMESTAMP) {
+      return (Timestamp)value;
+    }
+    throw new IllegalArgumentException("invalid type " + type);
+  }
+
+  /**
 	 * Return true/false for BOOL type
 	 */
 	public boolean isTrue() {

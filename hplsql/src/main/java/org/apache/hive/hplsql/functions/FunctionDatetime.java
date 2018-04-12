@@ -45,7 +45,8 @@ public class FunctionDatetime extends Function {
     f.map.put("TIMESTAMP_FORMAT", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { toTimestamp(ctx); }});
     f.map.put("TO_DATE", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { toTimestamp(ctx); }});
     f.map.put("UNIX_TIMESTAMP", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { unixTimestamp(ctx); }});
-  
+    f.map.put("TRUNC", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { trunc(ctx); }});
+
     f.specMap.put("CURRENT_DATE", new FuncSpecCommand() { public void run(HplsqlParser.Expr_spec_funcContext ctx) { currentDate(ctx); }});
     f.specMap.put("CURRENT_TIMESTAMP", new FuncSpecCommand() { public void run(HplsqlParser.Expr_spec_funcContext ctx) { currentTimestamp(ctx); }});
     f.specMap.put("SYSDATE", new FuncSpecCommand() { public void run(HplsqlParser.Expr_spec_funcContext ctx) { currentTimestamp(ctx); }});
@@ -189,5 +190,75 @@ public class FunctionDatetime extends Function {
    */
   void unixTimestamp(HplsqlParser.Expr_func_paramsContext ctx) {
     evalVar(new Var(System.currentTimeMillis()/1000));
+  }
+
+  /**
+   * TRUNC function
+   */
+  void trunc(HplsqlParser.Expr_func_paramsContext ctx) {
+    if (ctx == null) {
+      evalNull();
+      return;
+    }
+
+    if (ctx.func_param().size() == 1) {
+      eval(ctx);
+      return;
+    }
+
+    Var v1 = evalPop(ctx.func_param(0).expr());
+    if (v1.type == Var.Type.TIMESTAMP) {
+      String sqlFormat = evalPop(ctx.func_param(1).expr()).toString();
+      Date d = truncTimestamp(v1.timestampValue(), sqlFormat);
+      if (d != null) {
+        evalVar(new Var(new Timestamp(d.getTime()), 0));
+        return;
+      }
+    }
+
+    evalNull();
+  }
+
+  private Date truncTimestamp(Timestamp date, String sqlFormat) {
+    try {
+      Calendar c = Calendar.getInstance();
+      c.setTime(date);
+      switch (sqlFormat.toLowerCase()) {
+        case "yyyy":
+        case "yy":
+          c.set(Calendar.DAY_OF_YEAR, 1);
+          resetDay(c);
+          break;
+        case "mm":
+          c.set(Calendar.DAY_OF_MONTH, 1);
+          resetDay(c);
+          break;
+        case "dd":
+          resetDay(c);
+          break;
+        case "d":
+          c.set(Calendar.DAY_OF_WEEK, 1);
+          resetDay(c);
+          break;
+        case "hh":
+          c.set(Calendar.MINUTE, 0);
+          c.set(Calendar.SECOND, 0);
+          break;
+        case "mi":
+          c.set(Calendar.SECOND, 0);
+          break;
+      }
+      return c.getTime();
+    } catch (Exception e) {
+      exec.signal(e);
+    }
+    return null;
+  }
+
+  private void resetDay(Calendar calendar) {
+    calendar.set(Calendar.HOUR, 0);
+    calendar.set(Calendar.MINUTE, 0);
+    calendar.set(Calendar.SECOND, 0);
+    calendar.set(Calendar.MILLISECOND, 0);
   }
 }  
