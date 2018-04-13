@@ -131,9 +131,9 @@ assignment_stmt :       // Assignment statement
      ;
 
 assignment_stmt_item : 
-       assignment_stmt_single_item
+       assignment_stmt_select_item
+     | assignment_stmt_single_item
      | assignment_stmt_multiple_item
-     | assignment_stmt_select_item
      ;
 
 assignment_stmt_single_item : 
