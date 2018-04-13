@@ -46,6 +46,7 @@ public class FunctionDatetime extends Function {
     f.map.put("TO_DATE", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { toTimestamp(ctx); }});
     f.map.put("UNIX_TIMESTAMP", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { unixTimestamp(ctx); }});
     f.map.put("TRUNC", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { trunc(ctx); }});
+    f.map.put("DAYOFWEEK", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { dayOfWeek(ctx); }});
 
     f.specMap.put("CURRENT_DATE", new FuncSpecCommand() { public void run(HplsqlParser.Expr_spec_funcContext ctx) { currentDate(ctx); }});
     f.specMap.put("CURRENT_TIMESTAMP", new FuncSpecCommand() { public void run(HplsqlParser.Expr_spec_funcContext ctx) { currentTimestamp(ctx); }});
@@ -217,6 +218,30 @@ public class FunctionDatetime extends Function {
     }
 
     evalNull();
+  }
+
+  /**
+   * DAYOFWEEK() function
+   *   returns an integer, in the range of 1 to 7, that represents the day of the week,
+   *   where 1 is Sunday and 7 is Saturday.
+   */
+  void dayOfWeek(HplsqlParser.Expr_func_paramsContext ctx) {
+    if (ctx == null) {
+      evalNull();
+      return;
+    }
+
+    Var v = evalPop(ctx.func_param(0).expr());
+    Calendar c = Calendar.getInstance();
+    if (v.type == Var.Type.DATE) {
+      c.setTime(v.dateValue());
+    } else if (v.type == Var.Type.TIMESTAMP) {
+      c.setTime(v.timestampValue());
+    } else {
+      evalNull();
+      return;
+    }
+    evalInt(c.get(Calendar.DAY_OF_WEEK));
   }
 
   private Date truncTimestamp(Timestamp date, String sqlFormat) {
