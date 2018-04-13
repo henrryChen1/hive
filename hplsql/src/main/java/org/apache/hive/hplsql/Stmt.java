@@ -1143,14 +1143,27 @@ public class Stmt {
    */
   public Integer update(HplsqlParser.Update_stmtContext ctx) {
     trace(ctx, "UPDATE");
-    String sql = exec.getFormattedText(ctx);
+//    String sql = exec.getFormattedText(ctx);
+    StringBuilder sqlBuilder = new StringBuilder("UPDATE ");
 
-    if (ctx.update_table().ident() != null) {
-      String alias = evalPop(ctx.update_table().ident()).toString();
-      String tableName = evalPop(ctx.update_table().table_name()).toString();
-      sql = sql.replace(alias + ".", tableName + ".")
-          .replace(" " + alias + " ", " ");
+    sqlBuilder.append(exec.getFormattedText(ctx.update_table()))
+        .append(" SET ")
+        .append(exec.getFormattedText(ctx.update_assignment()))
+        .append(" ");
+    if (ctx.where_clause() != null) {
+      sqlBuilder.append(exec.getFormattedText(ctx.where_clause())).append(" ");
     }
+    if (ctx.update_upsert() != null) {
+      sqlBuilder.append(exec.getFormattedText(ctx.update_upsert()));
+    }
+
+    String sql = sqlBuilder.toString();
+    if (ctx.update_alias() != null) {
+      String alias = evalPop(ctx.update_alias().ident()).toString();
+      String tableName = evalPop(ctx.update_table().table_name()).toString();
+      sql = sql.replace(alias + ".", tableName + ".");
+    }
+
     trace(ctx, sql);
     Query query = exec.executeSql(ctx, sql, exec.conf.defaultConnection);
     if (query.error()) {

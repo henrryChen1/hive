@@ -916,7 +916,11 @@ select_options_item :
      ;
 
 update_stmt :                              // UPDATE statement
-       T_UPDATE update_table T_SET update_assignment where_clause? update_upsert?
+       T_UPDATE update_table update_alias? T_SET update_assignment where_clause? update_upsert?
+     ;
+
+update_alias :
+       T_AS? ident
      ;
 
 update_assignment :
@@ -924,7 +928,7 @@ update_assignment :
      ;
 
 update_table :
-       (table_name from_clause? | T_OPEN_P select_stmt T_CLOSE_P) (T_AS? ident)?
+       (table_name from_clause? | T_OPEN_P select_stmt T_CLOSE_P)
      ;     
      
 update_upsert :
