@@ -1144,12 +1144,17 @@ public class Stmt {
   public Integer update(HplsqlParser.Update_stmtContext ctx) {
     trace(ctx, "UPDATE");
 //    String sql = exec.getFormattedText(ctx);
+    String alias = "";
     StringBuilder sqlBuilder = new StringBuilder("UPDATE ");
 
+    String updateAssignment = exec.getFormattedText(ctx.update_assignment());
+    if (ctx.update_alias() != null) {
+      alias = evalPop(ctx.update_alias().ident()).toString();
+      updateAssignment = updateAssignment.replace(alias + ".", "");
+    }
     sqlBuilder.append(exec.getFormattedText(ctx.update_table()))
-        .append(" SET ")
-        .append(exec.getFormattedText(ctx.update_assignment()))
-        .append(" ");
+        .append(" SET ").append(updateAssignment).append(" ");
+
     if (ctx.where_clause() != null) {
       sqlBuilder.append(exec.getFormattedText(ctx.where_clause())).append(" ");
     }
@@ -1159,7 +1164,6 @@ public class Stmt {
 
     String sql = sqlBuilder.toString();
     if (ctx.update_alias() != null) {
-      String alias = evalPop(ctx.update_alias().ident()).toString();
       String tableName = evalPop(ctx.update_table().table_name()).toString();
       sql = sql.replace(alias + ".", tableName + ".");
     }
