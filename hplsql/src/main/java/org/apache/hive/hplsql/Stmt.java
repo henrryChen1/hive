@@ -1147,7 +1147,10 @@ public class Stmt {
     String alias = "";
     StringBuilder sqlBuilder = new StringBuilder("UPDATE ");
 
-    String updateAssignment = exec.getFormattedText(ctx.update_assignment());
+    boolean oldBuildSql = exec.buildSql;
+    exec.buildSql = true;
+//    String updateAssignment = exec.getFormattedText(ctx.update_assignment());
+    String updateAssignment = evalPop(ctx.update_assignment()).toString();
     if (ctx.update_alias() != null) {
       alias = evalPop(ctx.update_alias().ident()).toString();
       updateAssignment = updateAssignment.replace(alias + ".", "");
@@ -1156,7 +1159,8 @@ public class Stmt {
         .append(" SET ").append(updateAssignment).append(" ");
 
     if (ctx.where_clause() != null) {
-      sqlBuilder.append(exec.getFormattedText(ctx.where_clause())).append(" ");
+//      sqlBuilder.append(exec.getFormattedText(ctx.where_clause())).append(" ");
+        sqlBuilder.append(evalPop(ctx.where_clause())).append(" ");
     }
     if (ctx.update_upsert() != null) {
       sqlBuilder.append(exec.getFormattedText(ctx.update_upsert()));
@@ -1167,6 +1171,7 @@ public class Stmt {
       String tableName = evalPop(ctx.update_table().table_name()).toString();
       sql = sql.replace(alias + ".", tableName + ".");
     }
+    exec.buildSql = oldBuildSql;
 
     trace(ctx, sql);
     Query query = exec.executeSql(ctx, sql, exec.conf.defaultConnection);

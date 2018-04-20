@@ -1532,13 +1532,20 @@ public class Exec extends HplsqlBaseVisitor<Integer> {
    * Assignment statement for single value
    */
   @Override 
-  public Integer visitAssignment_stmt_single_item(HplsqlParser.Assignment_stmt_single_itemContext ctx) { 
+  public Integer visitAssignment_stmt_single_item(HplsqlParser.Assignment_stmt_single_itemContext ctx) {
     String name = ctx.ident().getText();
-    visit(ctx.expr());    
-    Var var = setVariable(name);
-    if (trace) {
-      trace(ctx, "SET " + name + " = " + var.toSqlString());      
-    }    
+    if (exec.buildSql) {
+      StringBuilder sql = new StringBuilder(name);
+      sql.append(" = ").append(evalPop(ctx.expr()));
+      exec.stackPush(sql);
+    }
+    else {
+      visit(ctx.expr());
+      Var var = setVariable(name);
+      if (trace) {
+        trace(ctx, "SET " + name + " = " + var.toSqlString());
+      }
+    }
     return 0;
   }  
 
@@ -1548,17 +1555,33 @@ public class Exec extends HplsqlBaseVisitor<Integer> {
   @Override 
   public Integer visitAssignment_stmt_multiple_item(HplsqlParser.Assignment_stmt_multiple_itemContext ctx) { 
     int cnt = ctx.ident().size();
-    int ecnt = ctx.expr().size();    
-    for (int i = 0; i < cnt; i++) {
-      String name = ctx.ident(i).getText();      
-      if (i < ecnt) {
-        visit(ctx.expr(i));
-        Var var = setVariable(name);        
-        if (trace) {
-          trace(ctx, "SET " + name + " = " + var.toString());      
-        } 
-      }      
-    }    
+    int ecnt = ctx.expr().size();
+
+    if (exec.buildSql) {
+      StringBuilder sql = new StringBuilder();
+      sql.append("(").append(ctx.ident(0).getText());
+      for (int i = 1; i < cnt; i++) {
+        sql.append(", ").append(ctx.ident(i).getText());
+      }
+      sql.append(") = (").append(evalPop(ctx.expr(0)));
+      for (int i = 1; i < ecnt; i++) {
+        sql.append(", ").append(evalPop(ctx.expr(i)));
+      }
+      sql.append(")");
+      exec.stackPush(sql);
+    }
+    else {
+      for (int i = 0; i < cnt; i++) {
+        String name = ctx.ident(i).getText();
+        if (i < ecnt) {
+          visit(ctx.expr(i));
+          Var var = setVariable(name);
+          if (trace) {
+            trace(ctx, "SET " + name + " = " + var.toString());
+          }
+        }
+      }
+    }
     return 0; 
   }
   
@@ -1566,8 +1589,26 @@ public class Exec extends HplsqlBaseVisitor<Integer> {
    * Assignment from SELECT statement 
    */
   @Override 
-  public Integer visitAssignment_stmt_select_item(HplsqlParser.Assignment_stmt_select_itemContext ctx) { 
-    return stmt.assignFromSelect(ctx); 
+  public Integer visitAssignment_stmt_select_item(HplsqlParser.Assignment_stmt_select_itemContext ctx) {
+    if (exec.buildSql) {
+      StringBuilder sql = new StringBuilder();
+      if (ctx.T_OPEN_P() != null) {
+        int cnt = ctx.ident().size();
+        sql.append("(").append(ctx.ident(0).getText());
+        for (int i = 1; i < cnt; i++) {
+          sql.append(", ").append(ctx.ident(i).getText());
+        }
+        sql.append(")");
+      }
+      else {
+        sql.append(ctx.ident(0).getText());
+      }
+      sql.append(" = (").append(evalPop(ctx.select_stmt())).append(")");
+      exec.stackPush(sql);
+      return 0;
+    }
+
+    return stmt.assignFromSelect(ctx);
   }
   
   /**
@@ -1947,7 +1988,23 @@ public class Exec extends HplsqlBaseVisitor<Integer> {
   public Integer visitUpdate_stmt(HplsqlParser.Update_stmtContext ctx) { 
     return stmt.update(ctx); 
   }
-  
+
+  /**
+  * UPDATE assignment statement
+  */
+  @Override
+  public Integer visitUpdate_assignment(HplsqlParser.Update_assignmentContext ctx) {
+    StringBuilder sql = new StringBuilder();
+    sql.append(evalPop(ctx.assignment_stmt_item(0)));
+
+    int cnt = ctx.assignment_stmt_item().size();
+    for (int i = 1; i < cnt; i++) {
+      sql.append(", ").append(evalPop(ctx.assignment_stmt_item(i)));
+    }
+    exec.stackPush(sql);
+    return 0;
+  }
+
   /**
    * DELETE statement
    */
