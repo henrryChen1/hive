@@ -47,6 +47,9 @@ public class FunctionDatetime extends Function {
     f.map.put("UNIX_TIMESTAMP", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { unixTimestamp(ctx); }});
     f.map.put("TRUNC", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { trunc(ctx); }});
     f.map.put("DAYOFWEEK", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { dayOfWeek(ctx); }});
+    f.map.put("YEAR", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { year(ctx); }});
+    f.map.put("MONTH", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { month(ctx); }});
+    f.map.put("DAY", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { day(ctx); }});
 
     f.specMap.put("CURRENT_DATE", new FuncSpecCommand() { public void run(HplsqlParser.Expr_spec_funcContext ctx) { currentDate(ctx); }});
     f.specMap.put("CURRENT_TIMESTAMP", new FuncSpecCommand() { public void run(HplsqlParser.Expr_spec_funcContext ctx) { currentTimestamp(ctx); }});
@@ -225,10 +228,49 @@ public class FunctionDatetime extends Function {
    *   returns an integer, in the range of 1 to 7, that represents the day of the week,
    *   where 1 is Sunday and 7 is Saturday.
    */
-  void dayOfWeek(HplsqlParser.Expr_func_paramsContext ctx) {
-    if (ctx == null) {
+  private void dayOfWeek(HplsqlParser.Expr_func_paramsContext ctx) {
+    Integer v = getPartOfDate(ctx, Calendar.DAY_OF_WEEK);
+    if (v != null) {
+      evalInt(v);
+    }
+    else {
       evalNull();
-      return;
+    }
+  }
+
+  private void year(HplsqlParser.Expr_func_paramsContext ctx) {
+    Integer v = getPartOfDate(ctx, Calendar.YEAR);
+    if (v != null) {
+      evalInt(v);
+    }
+    else {
+      evalNull();
+    }
+  }
+
+  private void month(HplsqlParser.Expr_func_paramsContext ctx) {
+    Integer v = getPartOfDate(ctx, Calendar.MONTH);
+    if (v != null) {
+      evalInt(v + 1);
+    }
+    else {
+      evalNull();
+    }
+  }
+
+  private void day(HplsqlParser.Expr_func_paramsContext ctx) {
+    Integer v = getPartOfDate(ctx, Calendar.DAY_OF_MONTH);
+    if (v != null) {
+      evalInt(v);
+    }
+    else {
+      evalNull();
+    }
+  }
+
+  private Integer getPartOfDate(HplsqlParser.Expr_func_paramsContext ctx, int part) {
+    if (ctx == null) {
+      return null;
     }
 
     Var v = evalPop(ctx.func_param(0).expr());
@@ -238,10 +280,9 @@ public class FunctionDatetime extends Function {
     } else if (v.type == Var.Type.TIMESTAMP) {
       c.setTime(v.timestampValue());
     } else {
-      evalNull();
-      return;
+      return null;
     }
-    evalInt(c.get(Calendar.DAY_OF_WEEK));
+    return c.get(part);
   }
 
   private Date truncTimestamp(Timestamp date, String sqlFormat) {

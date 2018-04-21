@@ -1421,6 +1421,8 @@ non_reserved_words :                      // Tokens that are not reserved words 
      | T_MICROSECOND
      | T_MICROSECONDS
      | T_MIN
+     | T_MONTH
+     | T_MONTHS
      | T_MULTISET
      | T_NCHAR
      | T_NEW
@@ -1559,6 +1561,8 @@ non_reserved_words :                      // Tokens that are not reserved words 
      | T_WORK
      | T_XACT_ABORT
      | T_XML
+     | T_YEAR
+     | T_YEARS
      | T_YES
      ;
 
