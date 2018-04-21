@@ -289,7 +289,7 @@ public class Stmt {
   public Integer createTemporaryTable(HplsqlParser.IdentContext identCtx, HplsqlParser.Create_table_definitionContext defCtx,
                                       HplsqlParser.Create_table_preoptionsContext optCtx) { 
     StringBuilder sql = new StringBuilder();
-    String name = identCtx.getText();
+    String name = identCtx.getText().toUpperCase();
     String managedName = null;
     Token last = identCtx.getStop();
     if (optCtx != null) {
