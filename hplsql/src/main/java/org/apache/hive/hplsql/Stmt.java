@@ -172,8 +172,12 @@ public class Stmt {
       }
       exec.append(sql, ctx.T_CLOSE_P().getText(), last, ctx.T_CLOSE_P().getSymbol());
     }
-    // CREATE TABLE AS SELECT statement
+    else if (ctx.T_LIKE() != null) {
+      sql.append(" ").append(ctx.T_LIKE().getText())
+          .append(" ").append(evalPop(ctx.table_name()));
+    }
     else {
+      // CREATE TABLE AS SELECT statement
       exec.append(sql, evalPop(ctx.select_stmt()).toString(), last, ctx.select_stmt().getStart());
       if (ctx.T_CLOSE_P() != null) {
         exec.append(sql, ctx.T_CLOSE_P().getText(), ctx.select_stmt().stop, ctx.T_CLOSE_P().getSymbol());

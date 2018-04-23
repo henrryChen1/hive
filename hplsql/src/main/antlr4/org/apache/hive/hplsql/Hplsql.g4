@@ -234,7 +234,7 @@ create_local_temp_table_stmt :
      ;
      
 create_table_definition :
-      (T_AS? T_OPEN_P select_stmt T_CLOSE_P | T_AS? select_stmt | T_OPEN_P create_table_columns T_CLOSE_P) create_table_options?
+      (T_AS? T_OPEN_P select_stmt T_CLOSE_P | T_AS? select_stmt | T_OPEN_P create_table_columns T_CLOSE_P | T_LIKE table_name) create_table_options?
      ;
      
 create_table_columns :         
@@ -419,7 +419,7 @@ dtype_attr :
      | T_NOT? (T_CASESPECIFIC | T_CS)
      ;
 
-dtype_default :         
+dtype_default :
        T_COLON? T_EQUAL expr
      | T_WITH? T_DEFAULT expr?
      ;
@@ -1357,7 +1357,7 @@ non_reserved_words :                      // Tokens that are not reserved words 
      | T_FULL     
      | T_FUNCTION
      | T_GET
-     | T_GLOBAL
+     // | T_GLOBAL reserved word
      | T_GO
      | T_GRANT
      | T_GROUP        
