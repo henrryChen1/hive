@@ -28,6 +28,10 @@ import java.util.Calendar;
 public class Interval {
   int days = 0;
   int milliseconds = 0;
+  int months = 0;
+  int hours = 0;
+  int minutes = 0;
+  int years = 0;
   
   /**
    * Add or subtract interval value to the specified date
@@ -63,6 +67,18 @@ public class Interval {
     if (milliseconds != 0) {
       c.setTimeInMillis(c.getTimeInMillis() + milliseconds * a);
     }
+    if (months != 0) {
+      c.add(Calendar.MONTH, months * a);
+    }
+    if (hours != 0) {
+      c.add(Calendar.HOUR, hours * a);
+    }
+    if (minutes != 0) {
+      c.add(Calendar.MINUTE, minutes * a);
+    }
+    if (years != 0) {
+      c.add(Calendar.YEAR, years * a);
+    }
     return c;
   }
   
@@ -76,6 +92,18 @@ public class Interval {
     if (item.compareToIgnoreCase("MICROSECONDS") == 0 || item.compareToIgnoreCase("MICROSECOND") == 0) {
       setMilliseconds(value);
     }
+    if (item.compareToIgnoreCase("MONTHS") == 0 || item.compareToIgnoreCase("MONTH") == 0) {
+      setMonths(value);
+    }
+    if (item.compareToIgnoreCase("HOURS") == 0 || item.compareToIgnoreCase("HOUR") == 0) {
+      setHours(value);
+    }
+    if (item.compareToIgnoreCase("MINUTES") == 0 || item.compareToIgnoreCase("MINUTE") == 0) {
+      setMinutes(value);
+    }
+    if (item.compareToIgnoreCase("YEARS") == 0 || item.compareToIgnoreCase("YEAR") == 0) {
+      setYears(value);
+    }
     return this;
   }
   
@@ -88,6 +116,22 @@ public class Interval {
   
   public void setMilliseconds(int milliseconds) {
     this.milliseconds = milliseconds;
+  }
+
+  public void setMonths(int months) {
+    this.months = months;
+  }
+
+  public void setHours(int hours) {
+    this.hours = hours;
+  }
+
+  public void setMinutes(int minutes) {
+    this.minutes = minutes;
+  }
+
+  public void setYears(int years) {
+    this.years = years;
   }
   
   /**
@@ -103,6 +147,22 @@ public class Interval {
     if (milliseconds != 0) {
       s.append(milliseconds);
       s.append(" milliseconds");
+    }
+    if (months != 0) {
+      s.append(months);
+      s.append(" months");
+    }
+    if (hours != 0) {
+      s.append(hours);
+      s.append(" hours");
+    }
+    if (minutes != 0) {
+      s.append(minutes);
+      s.append(" minutes");
+    }
+    if (years != 0) {
+      s.append(years);
+      s.append(" years");
     }
     return s.toString();
   }

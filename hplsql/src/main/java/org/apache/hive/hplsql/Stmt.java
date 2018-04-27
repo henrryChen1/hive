@@ -22,11 +22,14 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Stack;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hive.hplsql.Var.Type;
 
 /**
@@ -172,8 +175,12 @@ public class Stmt {
       }
       exec.append(sql, ctx.T_CLOSE_P().getText(), last, ctx.T_CLOSE_P().getSymbol());
     }
-    // CREATE TABLE AS SELECT statement
+    else if (ctx.T_LIKE() != null) {
+      sql.append(" ").append(ctx.T_LIKE().getText())
+          .append(" ").append(evalPop(ctx.table_name()));
+    }
     else {
+      // CREATE TABLE AS SELECT statement
       exec.append(sql, evalPop(ctx.select_stmt()).toString(), last, ctx.select_stmt().getStart());
       if (ctx.T_CLOSE_P() != null) {
         exec.append(sql, ctx.T_CLOSE_P().getText(), ctx.select_stmt().stop, ctx.T_CLOSE_P().getSymbol());
@@ -289,7 +296,7 @@ public class Stmt {
   public Integer createTemporaryTable(HplsqlParser.IdentContext identCtx, HplsqlParser.Create_table_definitionContext defCtx,
                                       HplsqlParser.Create_table_preoptionsContext optCtx) { 
     StringBuilder sql = new StringBuilder();
-    String name = identCtx.getText();
+    String name = identCtx.getText().toUpperCase();
     String managedName = null;
     Token last = identCtx.getStop();
     if (optCtx != null) {
@@ -765,12 +772,21 @@ public class Stmt {
       }
       sql.append(" VALUES\n("); 
     }
+
     int rows = ctx.insert_stmt_rows().insert_stmt_row().size();
     for (int i = 0; i < rows; i++) {
-      HplsqlParser.Insert_stmt_rowContext row =ctx.insert_stmt_rows().insert_stmt_row(i);
-      int cols = row.expr().size();
-      for (int j = 0; j < cols; j++) {         
-        String value = evalPop(row.expr(j)).toSqlString();
+      HplsqlParser.Insert_stmt_rowContext row = ctx.insert_stmt_rows().insert_stmt_row(i);
+      List<String> rowValues = row.expr().stream().map(it -> evalPop(it).toSqlString()).collect(Collectors.toList());
+      if (ctx.insert_stmt_cols() != null) {
+        List<String> columnNames = getColumnNames(ctx, table);
+        List<String> identNames = ctx.insert_stmt_cols().ident().stream()
+            .map(HplsqlParser.IdentContext::getText).collect(Collectors.toList());
+        rowValues = buildRowValues(columnNames, identNames, rowValues);
+      }
+
+      int cols = rowValues.size();
+      for (int j = 0; j < cols; j++) {
+        String value = rowValues.get(j);
         if (j == 0 && type == Conn.Type.HIVE && conf.insertValues == Conf.InsertValues.SELECT ) {
           sql.append("SELECT ");
         }
@@ -806,6 +822,57 @@ public class Stmt {
     exec.setSqlSuccess();
     exec.closeQuery(query, conn);
     return 0; 
+  }
+
+  private List<String> getColumnNames(ParserRuleContext ctx, String tableName) {
+    Query q = exec.executeQuery(ctx, "SHOW COLUMNS IN " + tableName, exec.conf.defaultConnection);
+    if (q.error()) {
+      exec.signal(q);
+      return null;
+    }
+    exec.setSqlSuccess();
+    ResultSet rs = q.getResultSet();
+    if (rs == null) {
+      return null;
+    }
+
+    List<String> columnNames = new ArrayList<>();
+    try {
+      while (rs.next()) {
+        columnNames.add(rs.getString(1));
+      }
+      trace(ctx, tableName + " columns: " + StringUtils.join(columnNames, ", "));
+    } catch (SQLException e) {
+      columnNames.clear();
+      trace(ctx, e.getMessage());
+    }
+    exec.closeQuery(q, exec.conf.defaultConnection);
+    return columnNames;
+  }
+
+  private List<String> buildRowValues(List<String> cols, List<String> idents, List<String> values) {
+    if (cols == null || cols.size() == 0) {
+      return values;
+    }
+
+    List<String> rowValues = new ArrayList<>();
+    for (String col : cols) {
+      int identIdx = 0;
+      for (; identIdx < idents.size(); identIdx++) {
+        if (col.equals(idents.get(identIdx))) {
+          break;
+        }
+      }
+      if (identIdx < idents.size()) {
+        rowValues.add(values.get(identIdx));
+        values.remove(identIdx);
+        idents.remove(identIdx);
+      }
+      else {
+        rowValues.add("'NULL'");
+      }
+    }
+    return rowValues;
   }
   
   /**
@@ -1143,7 +1210,36 @@ public class Stmt {
    */
   public Integer update(HplsqlParser.Update_stmtContext ctx) {
     trace(ctx, "UPDATE");
-    String sql = exec.getFormattedText(ctx);
+//    String sql = exec.getFormattedText(ctx);
+    String alias = "";
+    StringBuilder sqlBuilder = new StringBuilder("UPDATE ");
+
+    boolean oldBuildSql = exec.buildSql;
+    exec.buildSql = true;
+//    String updateAssignment = exec.getFormattedText(ctx.update_assignment());
+    String updateAssignment = evalPop(ctx.update_assignment()).toString();
+    if (ctx.update_alias() != null) {
+      alias = evalPop(ctx.update_alias().ident()).toString();
+      updateAssignment = updateAssignment.replace(alias + ".", "");
+    }
+    sqlBuilder.append(exec.getFormattedText(ctx.update_table()))
+        .append(" SET ").append(updateAssignment).append(" ");
+
+    if (ctx.where_clause() != null) {
+//      sqlBuilder.append(exec.getFormattedText(ctx.where_clause())).append(" ");
+        sqlBuilder.append(evalPop(ctx.where_clause())).append(" ");
+    }
+    if (ctx.update_upsert() != null) {
+      sqlBuilder.append(exec.getFormattedText(ctx.update_upsert()));
+    }
+
+    String sql = sqlBuilder.toString();
+    if (ctx.update_alias() != null) {
+      String tableName = evalPop(ctx.update_table().table_name()).toString();
+      sql = sql.replace(alias + ".", tableName + ".");
+    }
+    exec.buildSql = oldBuildSql;
+
     trace(ctx, sql);
     Query query = exec.executeSql(ctx, sql, exec.conf.defaultConnection);
     if (query.error()) {
@@ -1168,6 +1264,10 @@ public class Stmt {
         boolean oldBuildSql = exec.buildSql; 
         exec.buildSql = true;
         sql.append(" " + evalPop(ctx.where_clause()).toString());
+        if (ctx.delete_alias() != null) {
+          String alias = evalPop(ctx.delete_alias()).toString();
+          sql = new StringBuilder(sql.toString().replace(alias + ".", table + "."));
+        }
         exec.buildSql = oldBuildSql;
       }
     }

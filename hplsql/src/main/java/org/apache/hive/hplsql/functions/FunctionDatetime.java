@@ -45,7 +45,12 @@ public class FunctionDatetime extends Function {
     f.map.put("TIMESTAMP_FORMAT", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { toTimestamp(ctx); }});
     f.map.put("TO_DATE", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { toTimestamp(ctx); }});
     f.map.put("UNIX_TIMESTAMP", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { unixTimestamp(ctx); }});
-  
+    f.map.put("TRUNC", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { trunc(ctx); }});
+    f.map.put("DAYOFWEEK", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { dayOfWeek(ctx); }});
+    f.map.put("YEAR", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { year(ctx); }});
+    f.map.put("MONTH", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { month(ctx); }});
+    f.map.put("DAY", new FuncCommand() { public void run(HplsqlParser.Expr_func_paramsContext ctx) { day(ctx); }});
+
     f.specMap.put("CURRENT_DATE", new FuncSpecCommand() { public void run(HplsqlParser.Expr_spec_funcContext ctx) { currentDate(ctx); }});
     f.specMap.put("CURRENT_TIMESTAMP", new FuncSpecCommand() { public void run(HplsqlParser.Expr_spec_funcContext ctx) { currentTimestamp(ctx); }});
     f.specMap.put("SYSDATE", new FuncSpecCommand() { public void run(HplsqlParser.Expr_spec_funcContext ctx) { currentTimestamp(ctx); }});
@@ -189,5 +194,137 @@ public class FunctionDatetime extends Function {
    */
   void unixTimestamp(HplsqlParser.Expr_func_paramsContext ctx) {
     evalVar(new Var(System.currentTimeMillis()/1000));
+  }
+
+  /**
+   * TRUNC function
+   */
+  void trunc(HplsqlParser.Expr_func_paramsContext ctx) {
+    if (ctx == null) {
+      evalNull();
+      return;
+    }
+
+    if (ctx.func_param().size() == 1) {
+      eval(ctx);
+      return;
+    }
+
+    Var v1 = evalPop(ctx.func_param(0).expr());
+    if (v1.type == Var.Type.TIMESTAMP) {
+      String sqlFormat = evalPop(ctx.func_param(1).expr()).toString();
+      Date d = truncTimestamp(v1.timestampValue(), sqlFormat);
+      if (d != null) {
+        evalVar(new Var(new Timestamp(d.getTime()), 0));
+        return;
+      }
+    }
+
+    evalNull();
+  }
+
+  /**
+   * DAYOFWEEK() function
+   *   returns an integer, in the range of 1 to 7, that represents the day of the week,
+   *   where 1 is Sunday and 7 is Saturday.
+   */
+  private void dayOfWeek(HplsqlParser.Expr_func_paramsContext ctx) {
+    Integer v = getPartOfDate(ctx, Calendar.DAY_OF_WEEK);
+    if (v != null) {
+      evalInt(v);
+    }
+    else {
+      evalNull();
+    }
+  }
+
+  private void year(HplsqlParser.Expr_func_paramsContext ctx) {
+    Integer v = getPartOfDate(ctx, Calendar.YEAR);
+    if (v != null) {
+      evalInt(v);
+    }
+    else {
+      evalNull();
+    }
+  }
+
+  private void month(HplsqlParser.Expr_func_paramsContext ctx) {
+    Integer v = getPartOfDate(ctx, Calendar.MONTH);
+    if (v != null) {
+      evalInt(v + 1);
+    }
+    else {
+      evalNull();
+    }
+  }
+
+  private void day(HplsqlParser.Expr_func_paramsContext ctx) {
+    Integer v = getPartOfDate(ctx, Calendar.DAY_OF_MONTH);
+    if (v != null) {
+      evalInt(v);
+    }
+    else {
+      evalNull();
+    }
+  }
+
+  private Integer getPartOfDate(HplsqlParser.Expr_func_paramsContext ctx, int part) {
+    if (ctx == null) {
+      return null;
+    }
+
+    Var v = evalPop(ctx.func_param(0).expr());
+    Calendar c = Calendar.getInstance();
+    if (v.type == Var.Type.DATE) {
+      c.setTime(v.dateValue());
+    } else if (v.type == Var.Type.TIMESTAMP) {
+      c.setTime(v.timestampValue());
+    } else {
+      return null;
+    }
+    return c.get(part);
+  }
+
+  private Date truncTimestamp(Timestamp date, String sqlFormat) {
+    try {
+      Calendar c = Calendar.getInstance();
+      c.setTime(date);
+      switch (sqlFormat.toLowerCase()) {
+        case "yyyy":
+        case "yy":
+          c.set(Calendar.DAY_OF_YEAR, 1);
+          resetDay(c);
+          break;
+        case "mm":
+          c.set(Calendar.DAY_OF_MONTH, 1);
+          resetDay(c);
+          break;
+        case "dd":
+          resetDay(c);
+          break;
+        case "d":
+          c.set(Calendar.DAY_OF_WEEK, 1);
+          resetDay(c);
+          break;
+        case "hh":
+          c.set(Calendar.MINUTE, 0);
+          c.set(Calendar.SECOND, 0);
+          break;
+        case "mi":
+          c.set(Calendar.SECOND, 0);
+          break;
+      }
+      return c.getTime();
+    } catch (Exception e) {
+      exec.signal(e);
+    }
+    return null;
+  }
+
+  private void resetDay(Calendar calendar) {
+    calendar.set(Calendar.HOUR, 0);
+    calendar.set(Calendar.MINUTE, 0);
+    calendar.set(Calendar.SECOND, 0);
+    calendar.set(Calendar.MILLISECOND, 0);
   }
 }  

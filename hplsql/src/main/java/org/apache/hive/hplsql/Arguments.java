@@ -96,6 +96,9 @@ public class Arguments {
     
     // [-offline|--offline]
     options.addOption(new Option("offline", "offline", false, "Offline mode - skip SQL execution"));
+
+    // [-ast|--ast]
+    options.addOption(new Option("ast", "ast", false, "Output AST to ast.jpg"));
     
     // [-H|--help]
     options.addOption(new Option("H", "help", false, "Print help information"));
@@ -166,7 +169,17 @@ public class Arguments {
     }
     return false;
   }
-  
+
+  /**
+   * Test whether ast option is set
+   */
+  public boolean hasAstOption() {
+    if (commandLine.hasOption("ast")) {
+      return true;
+    }
+    return false;
+  }
+
   /**
    * Test whether debug option is set
    */

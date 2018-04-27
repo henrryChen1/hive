@@ -131,9 +131,9 @@ assignment_stmt :       // Assignment statement
      ;
 
 assignment_stmt_item : 
-       assignment_stmt_single_item
+       assignment_stmt_select_item
+     | assignment_stmt_single_item
      | assignment_stmt_multiple_item
-     | assignment_stmt_select_item
      ;
 
 assignment_stmt_single_item : 
@@ -234,7 +234,7 @@ create_local_temp_table_stmt :
      ;
      
 create_table_definition :
-      (T_AS? T_OPEN_P select_stmt T_CLOSE_P | T_AS? select_stmt | T_OPEN_P create_table_columns T_CLOSE_P) create_table_options?
+      (T_AS? T_OPEN_P select_stmt T_CLOSE_P | T_AS? select_stmt | T_OPEN_P create_table_columns T_CLOSE_P | T_LIKE table_name) create_table_options?
      ;
      
 create_table_columns :         
@@ -370,6 +370,7 @@ alter_table_add_constraint_item :
      
 dtype :                  // Data types
        T_CHAR
+     | T_CHARACTER
      | T_BIGINT
      | T_BINARY_DOUBLE
      | T_BINARY_FLOAT
@@ -418,7 +419,7 @@ dtype_attr :
      | T_NOT? (T_CASESPECIFIC | T_CS)
      ;
 
-dtype_default :         
+dtype_default :
        T_COLON? T_EQUAL expr
      | T_WITH? T_DEFAULT expr?
      ;
@@ -700,12 +701,17 @@ rollback_stmt :         // ROLLBACK statement
      
 set_session_option :          
        set_current_schema_option
+     | set_current_path_option
      | set_mssql_session_option
      | set_teradata_session_option
      ;
 
 set_current_schema_option :          
        ((T_CURRENT? T_SCHEMA) | T_CURRENT_SCHEMA) T_EQUAL? expr
+     ;
+
+set_current_path_option :
+       T_CURRENT? T_PATH T_EQUAL expr (',' expr)*
      ;
      
 set_mssql_session_option :
@@ -911,15 +917,19 @@ select_options_item :
      ;
 
 update_stmt :                              // UPDATE statement
-       T_UPDATE update_table T_SET update_assignment where_clause? update_upsert?
+       T_UPDATE update_table update_alias? T_SET update_assignment where_clause? update_upsert?
      ;
-     
+
+update_alias :
+       T_AS? ident
+     ;
+
 update_assignment :
        assignment_stmt_item (T_COMMA assignment_stmt_item)*
      ;
 
 update_table :
-       (table_name from_clause? | T_OPEN_P select_stmt T_CLOSE_P) (T_AS? ident)?
+       (table_name from_clause? | T_OPEN_P select_stmt T_CLOSE_P)
      ;     
      
 update_upsert :
@@ -1045,7 +1055,15 @@ interval_item :
      | T_MICROSECOND 
      | T_MICROSECONDS  
      | T_SECOND 
-     | T_SECONDS  
+     | T_SECONDS
+     | T_MONTH
+     | T_MONTHS
+     | T_HOUR
+     | T_HOURS
+     | T_MINUTE
+     | T_MINUTES
+     | T_YEAR
+     | T_YEARS
      ;
      
 expr_concat :                  // String concatenation operator
@@ -1066,12 +1084,12 @@ expr_case :                    // CASE expression
      | expr_case_searched
      ;
 
-expr_case_simple :              
-       T_CASE expr (T_WHEN expr T_THEN expr)+ (T_ELSE expr)? T_END
+expr_case_simple :
+       T_CASE expr (T_WHEN expr T_THEN stmt)+ (T_ELSE stmt)? T_END
      ;
 
 expr_case_searched :              
-       T_CASE (T_WHEN bool_expr T_THEN expr)+ (T_ELSE expr)? T_END
+       T_CASE (T_WHEN bool_expr T_THEN stmt)+ (T_ELSE stmt)? T_END
      ;
      
 expr_cursor_attribute :
@@ -1190,7 +1208,7 @@ timestamp_literal :                       // TIMESTAMP 'YYYY-MM-DD HH:MI:SS.FFF'
      ;
      
 ident :
-       (L_ID | non_reserved_words) ('.' (L_ID | non_reserved_words))* 
+       '-'? (L_ID | non_reserved_words) ('.' (L_ID | non_reserved_words))*
      ;
      
 string :                                   // String literal (single or double quoted)
@@ -1339,7 +1357,7 @@ non_reserved_words :                      // Tokens that are not reserved words 
      | T_FULL     
      | T_FUNCTION
      | T_GET
-     | T_GLOBAL
+     // | T_GLOBAL reserved word
      | T_GO
      | T_GRANT
      | T_GROUP        
@@ -1403,6 +1421,8 @@ non_reserved_words :                      // Tokens that are not reserved words 
      | T_MICROSECOND
      | T_MICROSECONDS
      | T_MIN
+     | T_MONTH
+     | T_MONTHS
      | T_MULTISET
      | T_NCHAR
      | T_NEW
@@ -1541,6 +1561,8 @@ non_reserved_words :                      // Tokens that are not reserved words 
      | T_WORK
      | T_XACT_ABORT
      | T_XML
+     | T_YEAR
+     | T_YEARS
      | T_YES
      ;
 
@@ -1672,6 +1694,8 @@ T_HAVING          : H A V I N G ;
 T_HDFS            : H D F S ; 
 T_HIVE            : H I V E ;
 T_HOST            : H O S T ;
+T_HOUR            : H O U R ;
+T_HOURS           : H O U R S ;
 T_IDENTITY        : I D E N T I T Y ; 
 T_IF              : I F ;
 T_IGNORE          : I G N O R E ; 
@@ -1723,6 +1747,10 @@ T_MESSAGE_TEXT    : M E S S A G E '_' T E X T ;
 T_MICROSECOND     : M I C R O S E C O N D ;
 T_MICROSECONDS    : M I C R O S E C O N D S;
 T_MIN             : M I N ;
+T_MINUTE          : M I N U T E ;
+T_MINUTES         : M I N U T E S ;
+T_MONTH           : M O N T H ;
+T_MONTHS          : M O N T H S ;
 T_MULTISET        : M U L T I S E T ; 
 T_NCHAR           : N C H A R ; 
 T_NEW             : N E W ;
@@ -1750,7 +1778,8 @@ T_OVER            : O V E R ;
 T_OVERWRITE       : O V E R W R I T E ; 
 T_OWNER           : O W N E R ; 
 T_PACKAGE         : P A C K A G E ; 
-T_PARTITION       : P A R T I T I O N ; 
+T_PARTITION       : P A R T I T I O N ;
+T_PATH            : P A T H ;
 T_PCTFREE         : P C T F R E E ; 
 T_PCTUSED         : P C T U S E D ;
 T_PLS_INTEGER     : P L S '_' I N T E G E R ;
@@ -1858,7 +1887,9 @@ T_WITHOUT         : W I T H O U T ;
 T_WORK            : W O R K ;
 T_XACT_ABORT      : X A C T '_' A B O R T ;
 T_XML             : X M L ;
-T_YES             : Y E S ; 
+T_YEAR            : Y E A R ;
+T_YEARS           : Y E A R S ;
+T_YES             : Y E S ;
 
 // Functions with specific syntax
 T_ACTIVITY_COUNT       : A C T I V I T Y '_' C O U N T ;
