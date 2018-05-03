@@ -286,7 +286,7 @@ public class Select {
 
   public Integer simpleInsertSelectList(HplsqlParser.Select_listContext ctx) {
     List<String> identNames = ctx.select_list_item().stream()
-        .map(it -> StringUtils.strip(evalPop(it).toString(), "`"))
+        .map(it -> StringUtils.strip(evalPop(it).toString(), "`\""))
         .collect(Collectors.toList());
     // trace(ctx, "ident names: " + StringUtils.join(identNames, ","));
 
