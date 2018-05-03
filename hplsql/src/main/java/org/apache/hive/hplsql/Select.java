@@ -21,12 +21,18 @@ package org.apache.hive.hplsql;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Stack;
+import java.util.stream.Collectors;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.misc.Interval;
+import org.apache.commons.lang3.StringUtils;
+
+import static org.apache.hive.hplsql.Utils.buildRowValues;
+import static org.apache.hive.hplsql.Utils.getColumnNames;
 
 public class Select {
 
@@ -246,7 +252,15 @@ public class Select {
   /**
    * SELECT list 
    */
-  public Integer selectList(HplsqlParser.Select_listContext ctx) { 
+  public Integer selectList(HplsqlParser.Select_listContext ctx) {
+    if (isSimpleInsertSelectList(ctx)) {
+      trace(ctx, "Simple insert select list");
+      return simpleInsertSelectList(ctx);
+    }
+    return otherSelectList(ctx);
+  }
+
+  public Integer otherSelectList(HplsqlParser.Select_listContext ctx) {
     StringBuilder sql = new StringBuilder();
     if (ctx.select_list_set() != null) {
       sql.append(exec.getText(ctx.select_list_set())).append(" ");
@@ -268,6 +282,60 @@ public class Select {
     }
     exec.stackPush(sql);
     return 0;
+  }
+
+  public Integer simpleInsertSelectList(HplsqlParser.Select_listContext ctx) {
+    List<String> identNames = ctx.select_list_item().stream()
+        .map(it -> StringUtils.strip(evalPop(it).toString(), "`"))
+        .collect(Collectors.toList());
+    // trace(ctx, "ident names: " + StringUtils.join(identNames, ","));
+
+    HplsqlParser.Subselect_stmtContext subselectStmtContext = (HplsqlParser.Subselect_stmtContext)ctx.parent;
+    String tableName = evalPop(subselectStmtContext.from_clause().from_table_clause()).toString();
+    List<String> columnNames = getColumnNames(exec, ctx, tableName);
+    trace(ctx, "column names: " + StringUtils.join(columnNames, ","));
+
+    identNames = buildRowValues(columnNames, identNames, new ArrayList<>(identNames));
+    exec.stackPush(StringUtils.join(identNames, ","));
+    return 0;
+  }
+
+  /**
+   * FIXME: Workaround to support insert columns
+   * insert .... select A, B from table ...
+   */
+  private boolean isSimpleInsertSelectList(HplsqlParser.Select_listContext ctx) {
+    // trace(ctx, "depth " + ctx.depth());
+    boolean underInsertStmt = ctx.depth() >= 6
+        && ctx.parent.parent.parent.parent.parent instanceof HplsqlParser.Insert_stmtContext;
+    if (!underInsertStmt) {
+      trace(ctx, "not under insert statement");
+      return false;
+    }
+
+    HplsqlParser.Subselect_stmtContext subselectStmtContext = (HplsqlParser.Subselect_stmtContext)ctx.parent;
+    HplsqlParser.From_clauseContext fromClauseContext = subselectStmtContext.from_clause();
+    if (fromClauseContext == null
+        || fromClauseContext.from_table_clause() == null
+        || fromClauseContext.from_table_clause().from_table_name_clause() == null) {
+      trace(ctx, "need from-table-name-clause");
+      return false;
+    }
+
+    int cnt = ctx.select_list_item().size();
+    for (int i = 0; i < cnt; i++) {
+      if (ctx.select_list_item(i).expr() == null || ctx.select_list_item(i).expr().expr_atom() == null) {
+        trace(ctx, "need expr-atom");
+        return false;
+      }
+    }
+
+    if (ctx.select_list_set() != null || ctx.select_list_limit() != null) {
+      trace(ctx, "select-list set or limit is not null");
+      return false;
+    }
+
+    return true;
   }
 
   /**

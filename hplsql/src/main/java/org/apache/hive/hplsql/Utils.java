@@ -18,8 +18,15 @@
 
 package org.apache.hive.hplsql;
 
+import org.antlr.v4.runtime.ParserRuleContext;
+import org.apache.commons.lang3.StringUtils;
+
 import java.sql.Date;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Utils {
 
@@ -336,4 +343,62 @@ public class Utils {
   static <T> String join(T[] array, String separator) {
     return org.antlr.v4.runtime.misc.Utils.join(array, separator);
   }
+
+  /**
+   *
+   */
+  public static List<String> getColumnNames(Exec exec, ParserRuleContext ctx, String tableName) {
+    Query q = exec.executeQuery(ctx, "SHOW COLUMNS IN " + tableName, exec.conf.defaultConnection);
+    if (q.error()) {
+      exec.signal(q);
+      return null;
+    }
+    exec.setSqlSuccess();
+    ResultSet rs = q.getResultSet();
+    if (rs == null) {
+      return null;
+    }
+
+    List<String> columnNames = new ArrayList<>();
+    try {
+      while (rs.next()) {
+        columnNames.add(rs.getString(1));
+      }
+      exec.trace(ctx, tableName + " columns: " + StringUtils.join(columnNames, ", "));
+    } catch (SQLException e) {
+      columnNames.clear();
+      exec.trace(ctx, e.getMessage());
+    }
+    exec.closeQuery(q, exec.conf.defaultConnection);
+    return columnNames;
+  }
+
+  /**
+   *
+   */
+  public static List<String> buildRowValues(List<String> cols, List<String> idents, List<String> values) {
+    if (cols == null || cols.size() == 0) {
+      return values;
+    }
+
+    List<String> rowValues = new ArrayList<>();
+    for (String col : cols) {
+      int identIdx = 0;
+      for (; identIdx < idents.size(); identIdx++) {
+        if (col.equals(idents.get(identIdx))) {
+          break;
+        }
+      }
+      if (identIdx < idents.size()) {
+        rowValues.add(values.get(identIdx));
+        values.remove(identIdx);
+        idents.remove(identIdx);
+      }
+      else {
+        rowValues.add("'NULL'");
+      }
+    }
+    return rowValues;
+  }
+
 }

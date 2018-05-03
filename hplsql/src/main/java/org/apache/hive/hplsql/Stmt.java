@@ -32,6 +32,9 @@ import org.antlr.v4.runtime.Token;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hive.hplsql.Var.Type;
 
+import static org.apache.hive.hplsql.Utils.buildRowValues;
+import static org.apache.hive.hplsql.Utils.getColumnNames;
+
 /**
  * HPL/SQL statements execution
  */
@@ -778,7 +781,7 @@ public class Stmt {
       HplsqlParser.Insert_stmt_rowContext row = ctx.insert_stmt_rows().insert_stmt_row(i);
       List<String> rowValues = row.expr().stream().map(it -> evalPop(it).toSqlString()).collect(Collectors.toList());
       if (ctx.insert_stmt_cols() != null) {
-        List<String> columnNames = getColumnNames(ctx, table);
+        List<String> columnNames = getColumnNames(exec, ctx, table);
         List<String> identNames = ctx.insert_stmt_cols().ident().stream()
             .map(HplsqlParser.IdentContext::getText).collect(Collectors.toList());
         rowValues = buildRowValues(columnNames, identNames, rowValues);
@@ -822,57 +825,6 @@ public class Stmt {
     exec.setSqlSuccess();
     exec.closeQuery(query, conn);
     return 0; 
-  }
-
-  private List<String> getColumnNames(ParserRuleContext ctx, String tableName) {
-    Query q = exec.executeQuery(ctx, "SHOW COLUMNS IN " + tableName, exec.conf.defaultConnection);
-    if (q.error()) {
-      exec.signal(q);
-      return null;
-    }
-    exec.setSqlSuccess();
-    ResultSet rs = q.getResultSet();
-    if (rs == null) {
-      return null;
-    }
-
-    List<String> columnNames = new ArrayList<>();
-    try {
-      while (rs.next()) {
-        columnNames.add(rs.getString(1));
-      }
-      trace(ctx, tableName + " columns: " + StringUtils.join(columnNames, ", "));
-    } catch (SQLException e) {
-      columnNames.clear();
-      trace(ctx, e.getMessage());
-    }
-    exec.closeQuery(q, exec.conf.defaultConnection);
-    return columnNames;
-  }
-
-  private List<String> buildRowValues(List<String> cols, List<String> idents, List<String> values) {
-    if (cols == null || cols.size() == 0) {
-      return values;
-    }
-
-    List<String> rowValues = new ArrayList<>();
-    for (String col : cols) {
-      int identIdx = 0;
-      for (; identIdx < idents.size(); identIdx++) {
-        if (col.equals(idents.get(identIdx))) {
-          break;
-        }
-      }
-      if (identIdx < idents.size()) {
-        rowValues.add(values.get(identIdx));
-        values.remove(identIdx);
-        idents.remove(identIdx);
-      }
-      else {
-        rowValues.add("'NULL'");
-      }
-    }
-    return rowValues;
   }
   
   /**
