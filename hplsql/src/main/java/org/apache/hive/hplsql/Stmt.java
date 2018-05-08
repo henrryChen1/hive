@@ -23,6 +23,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Stack;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -33,6 +34,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.hive.hplsql.Var.Type;
 
 import static org.apache.hive.hplsql.Utils.buildRowValues;
+import static org.apache.hive.hplsql.Utils.getColumnInfo;
 import static org.apache.hive.hplsql.Utils.getColumnNames;
 
 /**
@@ -760,10 +762,25 @@ public class Stmt {
     trace(ctx, "INSERT VALUES");
     String table = evalPop(ctx.table_name()).toString();
     String conn = exec.getObjectConnection(ctx.table_name().getText());
-    Conn.Type type = exec.getConnectionType(conn); 
+    Conn.Type type = exec.getConnectionType(conn);
+
+    Map<String, List<String>> columnInfo = getColumnInfo(exec, ctx, table);
+    List<String> partitionNames = columnInfo.get(Utils.PARTITION_COLUMN);
+    List<String> columnNames = columnInfo.get(Utils.REGULAR_COLUMN);
+    columnNames.addAll(partitionNames);
+
+    List<String> identNames = columnNames;
+    if (ctx.insert_stmt_cols() != null) {
+      identNames = ctx.insert_stmt_cols().ident().stream()
+          .map(HplsqlParser.IdentContext::getText).collect(Collectors.toList());
+    }
+
     StringBuilder sql = new StringBuilder();
     if (type == Conn.Type.HIVE) {
       sql.append("INSERT INTO TABLE " + table + " ");
+      if (partitionNames.size() > 0) {
+        sql.append("PARTITION(").append(StringUtils.join(partitionNames, ",")).append(") ");
+      }
       if (conf.insertValues == Conf.InsertValues.NATIVE) {
         sql.append("VALUES\n("); 
       }
@@ -780,12 +797,7 @@ public class Stmt {
     for (int i = 0; i < rows; i++) {
       HplsqlParser.Insert_stmt_rowContext row = ctx.insert_stmt_rows().insert_stmt_row(i);
       List<String> rowValues = row.expr().stream().map(it -> evalPop(it).toSqlString()).collect(Collectors.toList());
-      if (ctx.insert_stmt_cols() != null) {
-        List<String> columnNames = getColumnNames(exec, ctx, table);
-        List<String> identNames = ctx.insert_stmt_cols().ident().stream()
-            .map(HplsqlParser.IdentContext::getText).collect(Collectors.toList());
-        rowValues = buildRowValues(columnNames, identNames, rowValues);
-      }
+      rowValues = buildRowValues(columnNames, identNames, rowValues);
 
       int cols = rowValues.size();
       for (int j = 0; j < cols; j++) {
