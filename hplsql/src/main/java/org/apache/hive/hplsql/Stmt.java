@@ -23,7 +23,6 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Stack;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -34,8 +33,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.hive.hplsql.Var.Type;
 
 import static org.apache.hive.hplsql.Utils.buildRowValues;
-import static org.apache.hive.hplsql.Utils.getColumnInfo;
-import static org.apache.hive.hplsql.Utils.getColumnNames;
 
 /**
  * HPL/SQL statements execution
@@ -764,10 +761,8 @@ public class Stmt {
     String conn = exec.getObjectConnection(ctx.table_name().getText());
     Conn.Type type = exec.getConnectionType(conn);
 
-    Map<String, List<String>> columnInfo = getColumnInfo(exec, ctx, table);
-    List<String> partitionNames = columnInfo.get(Utils.PARTITION_COLUMN);
-    List<String> columnNames = columnInfo.get(Utils.REGULAR_COLUMN);
-    columnNames.addAll(partitionNames);
+    List<String> partitionKeys = meta.getPartitionKeys(ctx, exec.conf.defaultConnection, table);
+    List<String> columnNames = meta.getColumnNames(ctx, exec.conf.defaultConnection, table);
 
     List<String> identNames = columnNames;
     if (ctx.insert_stmt_cols() != null) {
@@ -778,8 +773,8 @@ public class Stmt {
     StringBuilder sql = new StringBuilder();
     if (type == Conn.Type.HIVE) {
       sql.append("INSERT INTO TABLE " + table + " ");
-      if (partitionNames.size() > 0) {
-        sql.append("PARTITION(").append(StringUtils.join(partitionNames, ",")).append(") ");
+      if (partitionKeys != null && partitionKeys.size() > 0) {
+        sql.append("PARTITION(").append(StringUtils.join(partitionKeys, ",")).append(") ");
       }
       if (conf.insertValues == Conf.InsertValues.NATIVE) {
         sql.append("VALUES\n("); 

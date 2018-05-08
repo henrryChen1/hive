@@ -23,6 +23,8 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 
@@ -85,6 +87,22 @@ public class Meta {
       row = readColumns(ctx, conn, table, map);
     }
     return row;
+  }
+
+  List<String> getColumnNames(ParserRuleContext ctx, String conn, String table) {
+    Row row = getRowDataType(ctx, conn, table);
+    if (row == null) {
+      return null;
+    }
+    return row.getColumns().stream().map(Column::getName).collect(Collectors.toList());
+  }
+
+  List<String> getPartitionKeys(ParserRuleContext ctx, String conn, String table) {
+    Row row = getRowDataType(ctx, conn, table);
+    if (row == null) {
+      return null;
+    }
+    return row.getColumns().stream().filter(Column::isPartitionKey).map(Column::getName).collect(Collectors.toList());
   }
   
   /**
@@ -151,6 +169,7 @@ public class Meta {
    * Read the column data from the database and cache it
    */
   Row readColumns(ParserRuleContext ctx, String conn, String table, HashMap<String, Row> map) {
+    boolean isPartitionInfo = false;
     Row row = null;
     Conn.Type connType = exec.getConnectionType(conn); 
     if (connType == Conn.Type.HIVE) {
@@ -159,6 +178,9 @@ public class Meta {
       exec.executeQuery(ctx, query, conn); 
       if (!query.error()) {
         ResultSet rs = query.getResultSet();
+        if (rs == null) {
+          return null;
+        }
         try {
           while (rs.next()) {
             String col = rs.getString(1);
@@ -167,10 +189,23 @@ public class Meta {
               row = new Row();
             }
             // Hive DESCRIBE outputs "empty_string NULL" row before partition information
-            if (typ == null) {
-              break;
+            if (col.equals("")) {
+              continue;
             }
-            row.addColumn(col.toUpperCase(), typ);
+
+            if (col.startsWith("#")) {
+              if (col.startsWith("# Partition")) {
+                isPartitionInfo = true;
+              }
+              continue;
+            }
+
+            if (isPartitionInfo) {
+              Column column = row.getColumn(col);
+              column.setPartitionKey(true);
+            } else {
+              row.addColumn(col, typ);
+            }
           } 
           map.put(table, row);
         } 

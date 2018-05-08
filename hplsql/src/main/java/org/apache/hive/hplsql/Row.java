@@ -48,6 +48,16 @@ public class Row {
     columns.add(column);
     columnMap.put(name.toUpperCase(), column);
   }
+
+  /**
+   * Get a column by column name
+   */
+  Column getColumn(String name) {
+    if (columnMap.containsKey(name.toUpperCase())) {
+      return columnMap.get(name.toUpperCase());
+    }
+    return null;
+  }
   
   /**
    * Get the data type by column name
