@@ -739,7 +739,14 @@ public class Stmt {
         sql.append(ctx.T_TABLE().getText() + " ");
       }
     }
-    sql.append(evalPop(ctx.table_name()).toString() + " ");
+
+    String tableName = evalPop(ctx.table_name()).toString();
+    sql.append(tableName).append(" ");
+    List<String> partitionKeys = meta.getPartitionKeys(ctx, exec.conf.defaultConnection, tableName);
+    if (partitionKeys != null && partitionKeys.size() > 0) {
+      sql.append("PARTITION(").append(StringUtils.join(partitionKeys, ",")).append(") ");
+    }
+
     sql.append(evalPop(ctx.select_stmt()).toString());
     trace(ctx, sql.toString());
     Query query = exec.executeSql(ctx, sql.toString(), exec.conf.defaultConnection);

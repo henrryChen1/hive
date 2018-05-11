@@ -32,7 +32,6 @@ import org.antlr.v4.runtime.misc.Interval;
 import org.apache.commons.lang3.StringUtils;
 
 import static org.apache.hive.hplsql.Utils.buildRowValues;
-import static org.apache.hive.hplsql.Utils.getColumnNames;
 
 public class Select {
 
@@ -290,12 +289,13 @@ public class Select {
         .collect(Collectors.toList());
     // trace(ctx, "ident names: " + StringUtils.join(identNames, ","));
 
-    HplsqlParser.Subselect_stmtContext subselectStmtContext = (HplsqlParser.Subselect_stmtContext)ctx.parent;
-    String tableName = evalPop(subselectStmtContext.from_clause().from_table_clause()).toString();
-    List<String> columnNames = getColumnNames(exec, ctx, tableName);
-    trace(ctx, "column names: " + StringUtils.join(columnNames, ","));
+    HplsqlParser.Insert_stmtContext insertStmtContext =
+        (HplsqlParser.Insert_stmtContext)ctx.parent.parent.parent.parent.parent;
+    String tableName = evalPop(insertStmtContext.table_name()).toString();
+    List<String> columnNames = exec.getMeta().getColumnNames(ctx, exec.conf.defaultConnection, tableName);
+    trace(ctx, tableName + " columns: " + StringUtils.join(columnNames, ","));
 
-    identNames = buildRowValues(columnNames, identNames, new ArrayList<>(identNames));
+    identNames = buildRowValues(columnNames, identNames, identNames);
     exec.stackPush(StringUtils.join(identNames, ","));
     return 0;
   }
