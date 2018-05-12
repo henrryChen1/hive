@@ -435,7 +435,7 @@ public class Utils {
     for (String col : cols) {
       int identIdx = 0;
       for (; identIdx < idents.size(); identIdx++) {
-        if (col.equals(idents.get(identIdx))) {
+        if (col.equalsIgnoreCase(idents.get(identIdx))) {
           break;
         }
       }

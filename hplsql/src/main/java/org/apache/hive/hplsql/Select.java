@@ -284,10 +284,10 @@ public class Select {
   }
 
   public Integer simpleInsertSelectList(HplsqlParser.Select_listContext ctx) {
-    List<String> identNames = ctx.select_list_item().stream()
+    List<String> rowValues = ctx.select_list_item().stream()
         .map(it -> StringUtils.strip(evalPop(it).toString(), "`\""))
         .collect(Collectors.toList());
-    // trace(ctx, "ident names: " + StringUtils.join(identNames, ","));
+     trace(ctx, "select list: " + StringUtils.join(rowValues, ","));
 
     HplsqlParser.Insert_stmtContext insertStmtContext =
         (HplsqlParser.Insert_stmtContext)ctx.parent.parent.parent.parent.parent;
@@ -295,8 +295,16 @@ public class Select {
     List<String> columnNames = exec.getMeta().getColumnNames(ctx, exec.conf.defaultConnection, tableName);
     trace(ctx, tableName + " columns: " + StringUtils.join(columnNames, ","));
 
-    identNames = buildRowValues(columnNames, identNames, identNames);
-    exec.stackPush(StringUtils.join(identNames, ","));
+    List<String> identNames = columnNames;
+    if (insertStmtContext.insert_stmt_cols() != null) {
+      identNames = insertStmtContext.insert_stmt_cols().ident().stream()
+          .map(HplsqlParser.IdentContext::getText).collect(Collectors.toList());
+    }
+
+    if (identNames != columnNames) {
+      rowValues = buildRowValues(columnNames, identNames, rowValues);
+    }
+    exec.stackPush(StringUtils.join(rowValues, ","));
     return 0;
   }
 
@@ -321,7 +329,7 @@ public class Select {
       trace(ctx, "need from-table-name-clause");
       return false;
     }
-
+/*
     int cnt = ctx.select_list_item().size();
     for (int i = 0; i < cnt; i++) {
       if (ctx.select_list_item(i).expr() == null || ctx.select_list_item(i).expr().expr_atom() == null) {
@@ -334,7 +342,7 @@ public class Select {
       trace(ctx, "select-list set or limit is not null");
       return false;
     }
-
+*/
     return true;
   }
 
