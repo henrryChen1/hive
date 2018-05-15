@@ -299,10 +299,12 @@ public class Select {
     if (insertStmtContext.insert_stmt_cols() != null) {
       identNames = insertStmtContext.insert_stmt_cols().ident().stream()
           .map(HplsqlParser.IdentContext::getText).collect(Collectors.toList());
+      trace(ctx, tableName + " idents: " + StringUtils.join(identNames, ","));
     }
 
     if (identNames != columnNames) {
       rowValues = buildRowValues(columnNames, identNames, rowValues);
+      trace(ctx, tableName + " rows: " + StringUtils.join(rowValues, ","));
     }
     exec.stackPush(StringUtils.join(rowValues, ","));
     return 0;
