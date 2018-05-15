@@ -1258,9 +1258,22 @@ public class Stmt {
    */
   public Integer merge(HplsqlParser.Merge_stmtContext ctx) {
     trace(ctx, "MERGE");
-    String sql = exec.getFormattedText(ctx);
-    trace(ctx, sql);
-    Query query = exec.executeSql(ctx, sql, exec.conf.defaultConnection);
+//    String sql = exec.getFormattedText(ctx);
+    StringBuilder sql = new StringBuilder("MERGE INTO ");
+
+    sql.append(evalPop(ctx.merge_table(0)))
+        .append(" USING ").append(evalPop(ctx.merge_table(1)));
+
+    boolean oldBuildSql = exec.buildSql;
+    exec.buildSql = true;
+    sql.append(" ON ").append(evalPop(ctx.bool_expr()));
+    for (int i = 0; i < ctx.merge_condition().size(); i++) {
+      sql.append(" ").append(evalPop(ctx.merge_condition(i)));
+    }
+    exec.buildSql = oldBuildSql;
+
+    trace(ctx, sql.toString());
+    Query query = exec.executeSql(ctx, sql.toString(), exec.conf.defaultConnection);
     if (query.error()) {
       exec.signal(query);
       return 1;

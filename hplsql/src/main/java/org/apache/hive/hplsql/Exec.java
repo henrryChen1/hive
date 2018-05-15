@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -36,6 +37,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.stream.Collectors;
 
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -46,8 +48,11 @@ import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 import org.antlr.v4.runtime.tree.gui.TreeViewer;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hive.hplsql.Var.Type;
 import org.apache.hive.hplsql.functions.*;
+
+import static org.apache.hive.hplsql.Utils.buildRowValues;
 
 /**
  * HPL/SQL script executor
@@ -1559,6 +1564,12 @@ public class Exec extends HplsqlBaseVisitor<Integer> {
 
     if (exec.buildSql) {
       StringBuilder sql = new StringBuilder();
+      //FIXME: Workaround to support Hive assignment stmt syntax
+      sql.append(evalPop(ctx.ident(0))).append(" = ").append(evalPop(ctx.expr(0)));
+      for (int i = 1; i < ctx.ident().size(); i++) {
+        sql.append(", ").append(evalPop(ctx.ident(i))).append(" = ").append(evalPop(ctx.expr(i)));
+      }
+      /*
       sql.append("(").append(ctx.ident(0).getText());
       for (int i = 1; i < cnt; i++) {
         sql.append(", ").append(ctx.ident(i).getText());
@@ -1568,6 +1579,7 @@ public class Exec extends HplsqlBaseVisitor<Integer> {
         sql.append(", ").append(evalPop(ctx.expr(i)));
       }
       sql.append(")");
+      */
       exec.stackPush(sql);
     }
     else {
@@ -2346,7 +2358,101 @@ public class Exec extends HplsqlBaseVisitor<Integer> {
     }
     return 0; 
   }
-  
+
+  @Override
+  public Integer visitMerge_condition(HplsqlParser.Merge_conditionContext ctx) {
+    StringBuilder sql = new StringBuilder();
+    if (ctx.T_WHEN() != null) {
+      sql.append("WHEN");
+      if (ctx.T_NOT() != null) {
+        sql.append(" NOT");
+      }
+      sql.append(" MATCHED");
+      if (ctx.bool_expr() != null) {
+        sql.append(" AND ").append(evalPop(ctx.bool_expr()));
+      }
+      sql.append(" THEN ").append(evalPop(ctx.merge_action()));
+    } else if (ctx.T_ELSE() != null) {
+      sql.append("ELSE IGNORE");
+    }
+
+    stackPush(sql.toString());
+    return 0;
+  }
+
+  @Override
+  public Integer visitMerge_action(HplsqlParser.Merge_actionContext ctx) {
+    String tableName = null;
+    String tableAlias = null;
+    HplsqlParser.Merge_stmtContext mergeStmtContext = (HplsqlParser.Merge_stmtContext)ctx.parent.parent;
+    if (mergeStmtContext.merge_table(0).table_name() != null) {
+      tableName = evalPop(mergeStmtContext.merge_table(0).table_name()).toString();
+      if (mergeStmtContext.merge_table(0).ident() != null) {
+        tableAlias = evalPop(mergeStmtContext.merge_table(0).ident()).toString();
+      }
+    }
+
+    StringBuilder sql = new StringBuilder();
+    // insert stmt
+    // FIXME: only support insert table
+    if (ctx.T_INSERT() != null) {
+      sql.append("INSERT");
+      List<String> partitionKeys = meta.getPartitionKeys(ctx, exec.conf.defaultConnection, tableName);
+      if (partitionKeys != null && partitionKeys.size() > 0) {
+        sql.append(" PARTITION(").append(StringUtils.join(partitionKeys, ",")).append(")");
+      }
+
+      List<String> rowValues = ctx.insert_stmt_row().expr().stream()
+          .map(it -> evalPop(it).toSqlString()).collect(Collectors.toList());
+      if (ctx.insert_stmt_cols() != null) {
+        List<String> identNames = ctx.insert_stmt_cols().ident().stream()
+            .map(HplsqlParser.IdentContext::getText).collect(Collectors.toList());
+        List<String> columnNames = meta.getColumnNames(ctx, exec.conf.defaultConnection, tableName);
+        rowValues = buildRowValues(columnNames, identNames, rowValues);
+      }
+      sql.append(" VALUES (").append(StringUtils.join(rowValues, ",")).append(")");
+    // update stmt
+    } else if (ctx.T_UPDATE() != null) {
+      sql.append("UPDATE SET");
+      for (int i = 0; i < ctx.assignment_stmt_item().size(); i++) {
+        String assignmentStmt = evalPop(ctx.assignment_stmt_item(i)).toString();
+        if (tableAlias != null) {
+          assignmentStmt = assignmentStmt.replace(tableAlias + ".", "");
+        }
+        sql.append(" ").append(assignmentStmt).append(",");
+      }
+      sql.deleteCharAt(sql.length() - 1);
+      if (ctx.where_clause() != null) {
+        sql.append(" ").append(evalPop(ctx.where_clause()));
+      }
+    // delete stmt
+    } else if (ctx.T_DELETE() != null) {
+      sql.append("DELETE");
+    }
+
+    stackPush(sql.toString());
+    return 0;
+  }
+
+  @Override
+  public Integer visitMerge_table(HplsqlParser.Merge_tableContext ctx) {
+    StringBuilder sql = new StringBuilder();
+    if (ctx.table_name() != null) {
+      sql.append(evalPop(ctx.table_name()));
+    } else {
+      sql.append("(").append(evalPop(ctx.select_stmt()).toString()).append(")");
+    }
+    if (ctx.ident() != null) {
+      if (ctx.T_AS() != null) {
+        sql.append(" AS");
+      }
+      sql.append(" ").append(evalPop(ctx.ident()).toString());
+    }
+
+    stackPush(sql.toString());
+    return 0;
+  }
+
   /**
    * Get the package context within which the current routine is executed
    */
