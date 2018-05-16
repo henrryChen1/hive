@@ -55,6 +55,9 @@ public class Expression {
       else if (ctx.T_DIV() != null) {
         operatorDiv(ctx); 
       }
+      else if (ctx.T_MOD() != null) {
+        operatorMod(ctx);
+      }
       else if (ctx.interval_item() != null) {
         createInterval(ctx);
       }
@@ -101,6 +104,11 @@ public class Expression {
     else if (ctx.T_SUB() != null) {
       sql.append(evalPop(ctx.expr(0)).toString());
       sql.append(" - ");
+      sql.append(evalPop(ctx.expr(1)).toString());
+    }
+    else if (ctx.T_MOD() != null) {
+      sql.append(evalPop(ctx.expr(0)).toString());
+      sql.append(" % ");
       sql.append(evalPop(ctx.expr(1)).toString());
     }
     else if (ctx.interval_item() != null) {
@@ -415,6 +423,23 @@ public class Expression {
     }
     else {
       exec.signal(Signal.Type.UNSUPPORTED_OPERATION, "Unsupported data types in division operator");
+    }
+  }
+
+  /**
+   * Modulo operator
+   */
+  public void operatorMod(HplsqlParser.ExprContext ctx) {
+    Var v1 = evalPop(ctx.expr(0));
+    Var v2 = evalPop(ctx.expr(1));
+    if (v1.value == null || v2.value == null) {
+      evalNull();
+    }
+    else if (v1.type == Type.BIGINT && v2.type == Type.BIGINT) {
+      exec.stackPush(new Var((Long)v1.value % (Long)v2.value));
+    }
+    else {
+      exec.signal(Signal.Type.UNSUPPORTED_OPERATION, "Unsupported data types in modulo operator");
     }
   }
   
