@@ -2406,7 +2406,7 @@ public class Exec extends HplsqlBaseVisitor<Integer> {
       }
 
       List<String> rowValues = ctx.insert_stmt_row().expr().stream()
-          .map(it -> evalPop(it).toSqlString()).collect(Collectors.toList());
+          .map(it -> evalPop(it).toString()).collect(Collectors.toList());
       if (ctx.insert_stmt_cols() != null) {
         List<String> identNames = ctx.insert_stmt_cols().ident().stream()
             .map(HplsqlParser.IdentContext::getText).collect(Collectors.toList());

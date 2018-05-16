@@ -798,7 +798,7 @@ public class Stmt {
     int rows = ctx.insert_stmt_rows().insert_stmt_row().size();
     for (int i = 0; i < rows; i++) {
       HplsqlParser.Insert_stmt_rowContext row = ctx.insert_stmt_rows().insert_stmt_row(i);
-      List<String> rowValues = row.expr().stream().map(it -> evalPop(it).toSqlString()).collect(Collectors.toList());
+      List<String> rowValues = row.expr().stream().map(it -> evalPop(it).toString()).collect(Collectors.toList());
       if (identNames != columnNames) {
         rowValues = buildRowValues(columnNames, identNames, rowValues);
       }
