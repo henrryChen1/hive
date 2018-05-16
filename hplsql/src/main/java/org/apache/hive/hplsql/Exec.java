@@ -1112,6 +1112,9 @@ public class Exec extends HplsqlBaseVisitor<Integer> {
   public Integer visitTable_name(HplsqlParser.Table_nameContext ctx) {
     String name = ctx.getText();
     String nameUp = name.toUpperCase();
+    if (!conf.tempTablesSchema.isEmpty()) {
+      nameUp = nameUp.replace(conf.tempTablesSchema.toUpperCase() + ".", "");
+    }
     String nameNorm = meta.normalizeObjectIdentifier(name);
     String actualName = exec.managedTables.get(nameUp);
     String conn = exec.objectConnMap.get(nameUp);
