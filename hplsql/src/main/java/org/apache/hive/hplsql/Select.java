@@ -405,8 +405,9 @@ public class Select {
       sql.append(exec.getText(ctx.from_join_type_clause()));
       sql.append(" ");
       sql.append(evalPop(ctx.from_table_clause()));
-      sql.append(" ");
-      sql.append(exec.getText(ctx, ctx.T_ON().getSymbol(), ctx.bool_expr().getStop()));
+      sql.append(" ON ");
+      sql.append(evalPop(ctx.bool_expr()));
+//      sql.append(exec.getText(ctx, ctx.T_ON().getSymbol(), ctx.bool_expr().getStop()));
     }
     exec.stackPush(sql);
     return 0; 
