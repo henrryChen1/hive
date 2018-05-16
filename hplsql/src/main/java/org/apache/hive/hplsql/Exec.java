@@ -2420,7 +2420,7 @@ public class Exec extends HplsqlBaseVisitor<Integer> {
       for (int i = 0; i < ctx.assignment_stmt_item().size(); i++) {
         String assignmentStmt = evalPop(ctx.assignment_stmt_item(i)).toString();
         if (tableAlias != null) {
-          assignmentStmt = assignmentStmt.replace(tableAlias + ".", "");
+          assignmentStmt = assignmentStmt.replace(tableAlias + ".", tableName + ".");
         }
         sql.append(" ").append(assignmentStmt).append(",");
       }
