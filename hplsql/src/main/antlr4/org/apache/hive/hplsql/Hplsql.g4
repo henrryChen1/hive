@@ -1023,7 +1023,8 @@ expr :
      | expr T_DIV expr  
      | expr T_ADD expr  
      | expr T_SUB expr   
-     | T_OPEN_P select_stmt T_CLOSE_P 
+     | expr T_MOD expr
+     | T_OPEN_P select_stmt T_CLOSE_P
      | T_OPEN_P expr T_CLOSE_P 
      | expr_interval 
      | expr_concat
@@ -1941,6 +1942,7 @@ T_CLOSE_P      : ')' ;
 T_CLOSE_SB     : ']' ;
 T_SEMICOLON    : ';' ;
 T_SUB          : '-' ;
+T_MOD          : '%' ;
 
 L_ID        : L_ID_PART                                                // Identifier
             ;

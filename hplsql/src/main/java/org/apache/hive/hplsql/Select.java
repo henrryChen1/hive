@@ -21,12 +21,17 @@ package org.apache.hive.hplsql;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Stack;
+import java.util.stream.Collectors;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.misc.Interval;
+import org.apache.commons.lang3.StringUtils;
+
+import static org.apache.hive.hplsql.Utils.buildRowValues;
 
 public class Select {
 
@@ -246,7 +251,15 @@ public class Select {
   /**
    * SELECT list 
    */
-  public Integer selectList(HplsqlParser.Select_listContext ctx) { 
+  public Integer selectList(HplsqlParser.Select_listContext ctx) {
+    if (isSimpleInsertSelectList(ctx)) {
+      trace(ctx, "Simple insert select list");
+      return simpleInsertSelectList(ctx);
+    }
+    return otherSelectList(ctx);
+  }
+
+  public Integer otherSelectList(HplsqlParser.Select_listContext ctx) {
     StringBuilder sql = new StringBuilder();
     if (ctx.select_list_set() != null) {
       sql.append(exec.getText(ctx.select_list_set())).append(" ");
@@ -268,6 +281,71 @@ public class Select {
     }
     exec.stackPush(sql);
     return 0;
+  }
+
+  public Integer simpleInsertSelectList(HplsqlParser.Select_listContext ctx) {
+    List<String> rowValues = ctx.select_list_item().stream()
+        .map(it -> StringUtils.strip(evalPop(it).toString(), "`\""))
+        .collect(Collectors.toList());
+     trace(ctx, "select list: " + StringUtils.join(rowValues, ","));
+
+    HplsqlParser.Insert_stmtContext insertStmtContext =
+        (HplsqlParser.Insert_stmtContext)ctx.parent.parent.parent.parent.parent;
+    String tableName = evalPop(insertStmtContext.table_name()).toString();
+    List<String> columnNames = exec.getMeta().getColumnNames(ctx, exec.conf.defaultConnection, tableName);
+    trace(ctx, tableName + " columns: " + StringUtils.join(columnNames, ","));
+
+    List<String> identNames = columnNames;
+    if (insertStmtContext.insert_stmt_cols() != null) {
+      identNames = insertStmtContext.insert_stmt_cols().ident().stream()
+          .map(HplsqlParser.IdentContext::getText).collect(Collectors.toList());
+      trace(ctx, tableName + " idents: " + StringUtils.join(identNames, ","));
+    }
+
+    if (identNames != columnNames) {
+      rowValues = buildRowValues(columnNames, identNames, rowValues);
+      trace(ctx, tableName + " rows: " + StringUtils.join(rowValues, ","));
+    }
+    exec.stackPush(StringUtils.join(rowValues, ","));
+    return 0;
+  }
+
+  /**
+   * FIXME: Workaround to support insert columns
+   * insert .... select A, B from table ...
+   */
+  private boolean isSimpleInsertSelectList(HplsqlParser.Select_listContext ctx) {
+    // trace(ctx, "depth " + ctx.depth());
+    boolean underInsertStmt = ctx.depth() >= 6
+        && ctx.parent.parent.parent.parent.parent instanceof HplsqlParser.Insert_stmtContext;
+    if (!underInsertStmt) {
+      trace(ctx, "not under insert statement");
+      return false;
+    }
+
+    HplsqlParser.Subselect_stmtContext subselectStmtContext = (HplsqlParser.Subselect_stmtContext)ctx.parent;
+    HplsqlParser.From_clauseContext fromClauseContext = subselectStmtContext.from_clause();
+    if (fromClauseContext == null
+        || fromClauseContext.from_table_clause() == null
+        || fromClauseContext.from_table_clause().from_table_name_clause() == null) {
+      trace(ctx, "need from-table-name-clause");
+      return false;
+    }
+/*
+    int cnt = ctx.select_list_item().size();
+    for (int i = 0; i < cnt; i++) {
+      if (ctx.select_list_item(i).expr() == null || ctx.select_list_item(i).expr().expr_atom() == null) {
+        trace(ctx, "need expr-atom");
+        return false;
+      }
+    }
+
+    if (ctx.select_list_set() != null || ctx.select_list_limit() != null) {
+      trace(ctx, "select-list set or limit is not null");
+      return false;
+    }
+*/
+    return true;
   }
 
   /**
@@ -327,8 +405,9 @@ public class Select {
       sql.append(exec.getText(ctx.from_join_type_clause()));
       sql.append(" ");
       sql.append(evalPop(ctx.from_table_clause()));
-      sql.append(" ");
-      sql.append(exec.getText(ctx, ctx.T_ON().getSymbol(), ctx.bool_expr().getStop()));
+      sql.append(" ON ");
+      sql.append(evalPop(ctx.bool_expr()));
+//      sql.append(exec.getText(ctx, ctx.T_ON().getSymbol(), ctx.bool_expr().getStop()));
     }
     exec.stackPush(sql);
     return 0; 

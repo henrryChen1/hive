@@ -32,6 +32,8 @@ import org.antlr.v4.runtime.Token;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hive.hplsql.Var.Type;
 
+import static org.apache.hive.hplsql.Utils.buildRowValues;
+
 /**
  * HPL/SQL statements execution
  */
@@ -737,7 +739,14 @@ public class Stmt {
         sql.append(ctx.T_TABLE().getText() + " ");
       }
     }
-    sql.append(evalPop(ctx.table_name()).toString() + " ");
+
+    String tableName = evalPop(ctx.table_name()).toString();
+    sql.append(tableName).append(" ");
+    List<String> partitionKeys = meta.getPartitionKeys(ctx, exec.conf.defaultConnection, tableName);
+    if (partitionKeys != null && partitionKeys.size() > 0) {
+      sql.append("PARTITION(").append(StringUtils.join(partitionKeys, ",")).append(") ");
+    }
+
     sql.append(evalPop(ctx.select_stmt()).toString());
     trace(ctx, sql.toString());
     Query query = exec.executeSql(ctx, sql.toString(), exec.conf.defaultConnection);
@@ -757,10 +766,23 @@ public class Stmt {
     trace(ctx, "INSERT VALUES");
     String table = evalPop(ctx.table_name()).toString();
     String conn = exec.getObjectConnection(ctx.table_name().getText());
-    Conn.Type type = exec.getConnectionType(conn); 
+    Conn.Type type = exec.getConnectionType(conn);
+
+    List<String> partitionKeys = meta.getPartitionKeys(ctx, exec.conf.defaultConnection, table);
+    List<String> columnNames = meta.getColumnNames(ctx, exec.conf.defaultConnection, table);
+
+    List<String> identNames = columnNames;
+    if (ctx.insert_stmt_cols() != null) {
+      identNames = ctx.insert_stmt_cols().ident().stream()
+          .map(HplsqlParser.IdentContext::getText).collect(Collectors.toList());
+    }
+
     StringBuilder sql = new StringBuilder();
     if (type == Conn.Type.HIVE) {
       sql.append("INSERT INTO TABLE " + table + " ");
+      if (partitionKeys != null && partitionKeys.size() > 0) {
+        sql.append("PARTITION(").append(StringUtils.join(partitionKeys, ",")).append(") ");
+      }
       if (conf.insertValues == Conf.InsertValues.NATIVE) {
         sql.append("VALUES\n("); 
       }
@@ -777,10 +799,7 @@ public class Stmt {
     for (int i = 0; i < rows; i++) {
       HplsqlParser.Insert_stmt_rowContext row = ctx.insert_stmt_rows().insert_stmt_row(i);
       List<String> rowValues = row.expr().stream().map(it -> evalPop(it).toSqlString()).collect(Collectors.toList());
-      if (ctx.insert_stmt_cols() != null) {
-        List<String> columnNames = getColumnNames(ctx, table);
-        List<String> identNames = ctx.insert_stmt_cols().ident().stream()
-            .map(HplsqlParser.IdentContext::getText).collect(Collectors.toList());
+      if (identNames != columnNames) {
         rowValues = buildRowValues(columnNames, identNames, rowValues);
       }
 
@@ -822,57 +841,6 @@ public class Stmt {
     exec.setSqlSuccess();
     exec.closeQuery(query, conn);
     return 0; 
-  }
-
-  private List<String> getColumnNames(ParserRuleContext ctx, String tableName) {
-    Query q = exec.executeQuery(ctx, "SHOW COLUMNS IN " + tableName, exec.conf.defaultConnection);
-    if (q.error()) {
-      exec.signal(q);
-      return null;
-    }
-    exec.setSqlSuccess();
-    ResultSet rs = q.getResultSet();
-    if (rs == null) {
-      return null;
-    }
-
-    List<String> columnNames = new ArrayList<>();
-    try {
-      while (rs.next()) {
-        columnNames.add(rs.getString(1));
-      }
-      trace(ctx, tableName + " columns: " + StringUtils.join(columnNames, ", "));
-    } catch (SQLException e) {
-      columnNames.clear();
-      trace(ctx, e.getMessage());
-    }
-    exec.closeQuery(q, exec.conf.defaultConnection);
-    return columnNames;
-  }
-
-  private List<String> buildRowValues(List<String> cols, List<String> idents, List<String> values) {
-    if (cols == null || cols.size() == 0) {
-      return values;
-    }
-
-    List<String> rowValues = new ArrayList<>();
-    for (String col : cols) {
-      int identIdx = 0;
-      for (; identIdx < idents.size(); identIdx++) {
-        if (col.equals(idents.get(identIdx))) {
-          break;
-        }
-      }
-      if (identIdx < idents.size()) {
-        rowValues.add(values.get(identIdx));
-        values.remove(identIdx);
-        idents.remove(identIdx);
-      }
-      else {
-        rowValues.add("'NULL'");
-      }
-    }
-    return rowValues;
   }
   
   /**
@@ -1290,9 +1258,22 @@ public class Stmt {
    */
   public Integer merge(HplsqlParser.Merge_stmtContext ctx) {
     trace(ctx, "MERGE");
-    String sql = exec.getFormattedText(ctx);
-    trace(ctx, sql);
-    Query query = exec.executeSql(ctx, sql, exec.conf.defaultConnection);
+//    String sql = exec.getFormattedText(ctx);
+    StringBuilder sql = new StringBuilder("MERGE INTO ");
+
+    sql.append(evalPop(ctx.merge_table(0)))
+        .append(" USING ").append(evalPop(ctx.merge_table(1)));
+
+    boolean oldBuildSql = exec.buildSql;
+    exec.buildSql = true;
+    sql.append(" ON ").append(evalPop(ctx.bool_expr()));
+    for (int i = 0; i < ctx.merge_condition().size(); i++) {
+      sql.append(" ").append(evalPop(ctx.merge_condition(i)));
+    }
+    exec.buildSql = oldBuildSql;
+
+    trace(ctx, sql.toString());
+    Query query = exec.executeSql(ctx, sql.toString(), exec.conf.defaultConnection);
     if (query.error()) {
       exec.signal(query);
       return 1;

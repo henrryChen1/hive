@@ -18,10 +18,22 @@
 
 package org.apache.hive.hplsql;
 
+import org.antlr.v4.runtime.ParserRuleContext;
+import org.apache.commons.lang3.StringUtils;
+
 import java.sql.Date;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class Utils {
+
+  public static final String REGULAR_COLUMN = "rcol";
+  public static final String PARTITION_COLUMN = "pcol";
 
   /**
    * Unquote string and remove escape characters inside the script 
@@ -336,4 +348,107 @@ public class Utils {
   static <T> String join(T[] array, String separator) {
     return org.antlr.v4.runtime.misc.Utils.join(array, separator);
   }
+
+  /**
+   *
+   */
+  public static List<String> getColumnNames(Exec exec, ParserRuleContext ctx, String tableName) {
+    Query q = exec.executeQuery(ctx, "SHOW COLUMNS IN " + tableName, exec.conf.defaultConnection);
+    if (q.error()) {
+      exec.signal(q);
+      return null;
+    }
+    exec.setSqlSuccess();
+    ResultSet rs = q.getResultSet();
+    if (rs == null) {
+      return null;
+    }
+
+    List<String> columnNames = new ArrayList<>();
+    try {
+      while (rs.next()) {
+        columnNames.add(rs.getString(1));
+      }
+      exec.trace(ctx, tableName + " columns: " + StringUtils.join(columnNames, ", "));
+    } catch (SQLException e) {
+      columnNames.clear();
+      exec.trace(ctx, e.getMessage());
+    }
+    exec.closeQuery(q, exec.conf.defaultConnection);
+    return columnNames;
+  }
+
+  /**
+   * Return <column type, column name list>
+   */
+  public static Map<String, List<String>> getColumnInfo(Exec exec, ParserRuleContext ctx, String tableName) {
+    Query q = exec.executeQuery(ctx, "DESCRIBE " + tableName, exec.conf.defaultConnection);
+    if (q.error()) {
+      exec.signal(q);
+      return null;
+    }
+    exec.setSqlSuccess();
+    ResultSet rs = q.getResultSet();
+    if (rs == null) {
+      return null;
+    }
+
+    String columnType = REGULAR_COLUMN;
+    Map<String, List<String>> columnInfo = new HashMap<>();
+    columnInfo.put(REGULAR_COLUMN, new ArrayList<>());
+    columnInfo.put(PARTITION_COLUMN, new ArrayList<>());
+    try {
+      while (rs.next()) {
+        String colName = rs.getString(1);
+        if (colName == null || colName.equals("")) {
+          continue;
+        }
+        if (colName.startsWith("#")) {
+          if (colName.startsWith("# Partition")) {
+            columnType = PARTITION_COLUMN;
+          }
+          continue;
+        }
+        columnInfo.get(columnType).add(colName);
+      }
+      columnInfo.get(REGULAR_COLUMN).removeAll(columnInfo.get(PARTITION_COLUMN));
+      exec.trace(ctx, tableName + " columns: " + StringUtils.join(columnInfo, ", "));
+    } catch (SQLException e) {
+      columnInfo.clear();
+      exec.trace(ctx, e.getMessage());
+    }
+    exec.closeQuery(q, exec.conf.defaultConnection);
+    return columnInfo;
+  }
+
+  /**
+   *
+   */
+  public static List<String> buildRowValues(List<String> cols, List<String> identNames, List<String> rawValues) {
+    if (cols == null || cols.size() == 0) {
+      return rawValues;
+    }
+
+    List<String> allValue = new ArrayList<>();
+    List<String> idents = new ArrayList<>(identNames);
+    List<String> values = new ArrayList<>(rawValues);
+    for (String col : cols) {
+      int identIdx = 0;
+      for (; identIdx < idents.size(); identIdx++) {
+        if (col.equalsIgnoreCase(idents.get(identIdx))) {
+          break;
+        }
+      }
+      if (identIdx < idents.size()) {
+        allValue.add(values.get(identIdx));
+        values.remove(identIdx);
+        idents.remove(identIdx);
+      }
+      else {
+        allValue.add("'NULL'");
+      }
+    }
+    return allValue;
+  }
+
 }

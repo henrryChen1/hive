@@ -652,6 +652,8 @@ public class Var {
     }
     else if (type == Type.STRING) {
       return Utils.quoteString((String)value);
+    } else if (type == Type.DATE || type == Type.TIMESTAMP) {
+      return Utils.quoteString(toString());
     }
     return toString();
   }

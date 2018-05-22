@@ -29,6 +29,7 @@ public class Column {
   
   int len;
   int scale;
+  boolean partitionKey = false;
   
   Column(String name, String type) {
     this.name = name;
@@ -66,6 +67,10 @@ public class Column {
     this.value = value;
   }
 
+  void setPartitionKey(boolean partitionKey) {
+    this.partitionKey = partitionKey;
+  }
+
   /**
    * Get the column name
    */
@@ -85,6 +90,10 @@ public class Column {
    */
   Var getValue() {
     return value;
+  }
+
+  boolean isPartitionKey() {
+    return partitionKey;
   }
 }
 
